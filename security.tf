@@ -98,35 +98,18 @@ resource "aws_security_group_rule" "ingress_k8s_api" {
   type              = "ingress"
   from_port         = 6443
   to_port           = 6443
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.k8s_lab.id
+  description       = "Allow Kubernetes API server access (6443)"
+}
+
 # =============================================================================
 # EGRESS RULES — Traffic LEAVING instances
 # =============================================================================
 
 # -----------------------------------------------------------------------------
 # EGRESS: Allow ALL outbound traffic
-#
-# from_port=0, to_port=0, protocol="-1" means ALL protocols on ALL ports.
-# "-1" is the IANA protocol number for "all protocols" (TCP, UDP, ICMP, etc.)
-#
-# Why allow all outbound?
-#   1. Instances need to download packages (apt-get update)
-#   2. Instances need to pull container images (Docker Hub, ECR, etc.)
-#   3. Kubernetes nodes need to reach external services
-#   4. NTP, DNS, and other infrastructure services
-#
-# The alternative (restrictive egress) is a production hardening practice
-# but adds significant operational complexity. For a learning lab, allow
-# all egress and focus on learning Terraform.
-#
-# Because SGs are STATEFUL, responses to ALLOWED inbound traffic are
-# automatically allowed outbound (the reverse direction). This rule
-# is for traffic INITIATED by the instances themselves.
-#
-# Production recommendation:
-#   - Restrict DNS to port 53 UDP to your DNS servers only
-#   - Restrict HTTP/HTTPS to specific package mirrors
-#   - Use VPC Endpoints for AWS services (no internet needed)
-#   - Log all egress via VPC Flow Logs for auditing
 # -----------------------------------------------------------------------------
 resource "aws_security_group_rule" "egress_all" {
   type              = "egress"
@@ -140,23 +123,4 @@ resource "aws_security_group_rule" "egress_all" {
 
 # =============================================================================
 # SECURITY GROUP DESIGN COMPLETE!
-#
-# Summary of traffic flow:
-#
-#   INBOUND (ingress):
-#     Port 22  (SSH)         ← From anywhere (for Ansible and manual access)
-#     Port 6443 (K8s API)    ← From anywhere (for kubectl and node registration)
-#     Everything else        ← BLOCKED (implicit deny)
-#
-#   OUTBOUND (egress):
-#     All traffic             → To anywhere (for updates, Docker pulls, DNS, etc.)
-#
-#   REMEMBER: Because SGs are stateful, the response to ALLOWED inbound
-#   traffic flows back out automatically. We don't need egress rules
-#   for "response to SSH" or "response to K8s API" — that's automatic!
 # =============================================================================
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.k8s_lab.id
-  description       = "Allow Kubernetes API server access (6443)"
-}

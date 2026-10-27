@@ -33,18 +33,15 @@ resource "aws_vpc" "main" {
   # (would require destroy + recreate of the entire VPC).
   cidr_block = var.vpc_cidr
 
-  # enable_dns_support: Makes the AWS DNS server work (VPC base + 2).
-  # Required for SSM, ECS, RDS, and most AWS services. Cost: FREE.
-  enable_dns_support = true
-
   # enable_dns_hostnames: Assigns public DNS names to instances with
   # public IPs. Needed so we can identify instances by hostname.
+  # Also enables DNS resolution via the VPC DNS server at base+2.
+  #
+  # NOTE: DNS resolution (VPC base+2 resolver) is always available;
+  # enable_dns_hostnames controls whether instances get public DNS names.
+  # The deprecated `enable_dns_support` attribute does not exist in the
+  # Terraform AWS provider — `enable_dns_hostnames` is the correct attribute.
   enable_dns_hostnames = true
-
-  # instance_tenancy: "default" = shared hardware (cheapest).
-  # "dedicated" = single-tenant (compliance, much more expensive).
-  # Changing this forces VPC destroy+recreate!
-  instance_tenancy = "default"
 
   # Tags: "Name" tag appears in the AWS Console. Without it, you see
   # anonymous IDs like "vpc-0a1b2c...". ALWAYS set a Name tag.
@@ -103,27 +100,14 @@ resource "aws_subnet" "public" {
   map_public_ip_on_launch = true
 
   tags = {
+    Name = "${local.name_prefix}-public-subnet"
+  }
+}
+
 # =============================================================================
 # 3. INTERNET GATEWAY — The bridge between VPC and the public internet
-#
-# An IGW is a horizontally-scaled, redundant, highly-available component
-# that allows communication between your VPC and the internet. Without it,
-# nothing in your VPC can reach the internet AND nothing from the internet
-# can reach your VPC.
-#
-# Key facts:
-#   - One IGW can serve exactly ONE VPC (one-to-one relationship)
-#   - One VPC can have at most ONE IGW (but can have multiple NAT gateways)
-#   - The IGW performs 1:1 NAT for public IPs (the instance "sees" its
-#     private IP but the internet "sees" the public IP — AWS handles the
-#     translation transparently)
-#   - IGW itself is FREE. You only pay for the traffic that flows through it.
-#   - Creating an IGW doesn't automatically connect it — you must also create
-#     a route in the route table pointing 0.0.0.0/0 to the IGW.
 # =============================================================================
 resource "aws_internet_gateway" "main" {
-
-  # Attach this IGW to our VPC. The IGW is useless without attachment.
   vpc_id = aws_vpc.main.id
 
   tags = {
@@ -133,18 +117,6 @@ resource "aws_internet_gateway" "main" {
 
 # =============================================================================
 # 4. ROUTE TABLE — A set of rules that determines where network traffic goes
-#
-# Think of a route table as a GPS for packets. When a packet leaves an
-# instance, AWS consults the route table to determine its next hop.
-#
-# The VPC automatically comes with a "main" route table that routes traffic
-# WITHIN the VPC (the `local` route). You can't delete the local route.
-#
-# We create a CUSTOM route table because:
-#   - We want EXPLICIT control over routing (not relying on defaults)
-#   - Best practice: never modify the default main route table
-#   - We can name it meaningfully ("k8s-lab-public-rt")
-#   - If something goes wrong, the main route table is still intact
 # =============================================================================
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
@@ -222,6 +194,3 @@ resource "aws_route_table_association" "public" {
 # references. You don't write it — you write references and Terraform
 # derives the graph. This is the magic of declarative IaC.
 # =============================================================================
-    Name = "${local.name_prefix}-public-subnet"
-  }
-}

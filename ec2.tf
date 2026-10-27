@@ -107,6 +107,19 @@ data "aws_ami" "ubuntu" {
   # instances without losing data and supports snapshots.
   # "instance-store" = ephemeral (data lost on stop) — not suitable here.
   filter {
+    name   = "root-device-type"
+    values = ["ebs"]
+  }
+
+  # Filter 4: Architecture
+  # x86_64 = standard Intel/AMD 64-bit. Our t3.small uses x86_64.
+  # arm64 would be for t4g / Graviton instances (different AMI needed).
+  filter {
+    name   = "architecture"
+    values = ["x86_64"]
+  }
+}
+
 # =============================================================================
 # EC2 INSTANCES — 4 servers for the Kubernetes lab
 #
@@ -174,7 +187,9 @@ resource "aws_instance" "this" {
   # Must be: within subnet CIDR, not AWS-reserved, unique.
   # Terraform validates subnet CIDR containment at plan time.
   # ---------------------------------------------------------------------------
-# ---------------------------------------------------------------------------
+  private_ip = each.value.private_ip
+
+  # ---------------------------------------------------------------------------
   # key_name — The EC2 Key Pair for SSH authentication.
   #
   # This MUST pre-exist in AWS. Terraform can't auto-create key pairs
@@ -243,7 +258,29 @@ resource "aws_instance" "this" {
     # -------------------------------------------------------------------------
     # encrypted — Encrypt the EBS volume at rest using AWS KMS.
     #
-# ---------------------------------------------------------------------------
+    # true  = Data is encrypted on the physical disk (our choice)
+    # false = Data is stored unencrypted
+    #
+    # AWS KMS encryption is FREE for EBS (uses the AWS-managed key).
+    # There is ZERO reason not to encrypt root volumes in 2024.
+    # Encryption is transparent to the OS and applications.
+    #
+    # Encrypted volumes also mean snapshots are encrypted, and any
+    # volumes created FROM those snapshots are encrypted too.
+    # -------------------------------------------------------------------------
+    encrypted = true
+
+    # -------------------------------------------------------------------------
+    # tags — EBS-specific tags. These are SEPARATE from the instance tags.
+    # Useful for cost allocation: you can filter AWS Cost Explorer by
+    # volume tags to see how much you spend on storage vs compute.
+    # -------------------------------------------------------------------------
+    tags = {
+      Name = "${local.name_prefix}-${each.key}-root-vol"
+    }
+  }
+
+  # ---------------------------------------------------------------------------
   # tags — EC2 instance metadata.
   #
   # "Name" tag: Appears as the Name column in the AWS EC2 Console.
@@ -347,38 +384,3 @@ resource "aws_instance" "this" {
 #   - Won't be destroyed just because a new AMI is released
 #
 # Next step: outputs.tf — expose these values so we know what was created.
-# =============================================================================
-    # true  = Data is encrypted on the physical disk (our choice)
-    # false = Data is stored unencrypted
-    #
-    # AWS KMS encryption is FREE for EBS (uses the AWS-managed key).
-    # There is ZERO reason not to encrypt root volumes in 2024.
-    # Encryption is transparent to the OS and applications.
-    #
-    # Encrypted volumes also mean snapshots are encrypted, and any
-    # volumes created FROM those snapshots are encrypted too.
-    # -------------------------------------------------------------------------
-    encrypted = true
-
-    # -------------------------------------------------------------------------
-    # tags — EBS-specific tags. These are SEPARATE from the instance tags.
-    # Useful for cost allocation: you can filter AWS Cost Explorer by
-    # volume tags to see how much you spend on storage vs compute.
-    # -------------------------------------------------------------------------
-    tags = {
-      Name = "${local.name_prefix}-${each.key}-root-vol"
-    }
-  }
-  private_ip = each.value.private_ip
-    name   = "root-device-type"
-    values = ["ebs"]
-  }
-
-  # Filter 4: Architecture
-  # x86_64 = standard Intel/AMD 64-bit. Our t3.small uses x86_64.
-  # arm64 would be for t4g / Graviton instances (different AMI needed).
-  filter {
-    name   = "architecture"
-    values = ["x86_64"]
-  }
-}
