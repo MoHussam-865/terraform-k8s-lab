@@ -1,0 +1,102 @@
+# =============================================================================
+# FILE:        terraform.tfvars.example
+# PURPOSE:     Template for the terraform.tfvars file. Shows the expected
+#              format without exposing real values.
+# LOADED:      NEVER — this is just an example. The real terraform.tfvars
+#              (if it exists) is loaded automatically by Terraform.
+# OPTIONAL:    Yes, but every production project should have one.
+# DEPENDS ON:  variables.tf (defines which variables exist)
+#
+# HOW TO USE THIS FILE:
+#
+#   1. COPY this file to terraform.tfvars (the real file):
+#        cp terraform.tfvars.example terraform.tfvars
+#
+#   2. EDIT terraform.tfvars with your actual values:
+#        - Set key_name to your existing EC2 Key Pair name
+#        - Optionally change instance_type, region, etc.
+#
+#   3. The real terraform.tfvars is in .gitignore — it will NEVER be
+#      committed. This protects your configuration details.
+#
+# WHY SEPARATE VARIABLES FROM CODE:
+#
+#   1. SECURITY: Variables can contain sensitive-ish information
+#      (instance types, region preferences, naming conventions).
+#      These aren't "secrets" like passwords, but they reveal your
+#      infrastructure design. Keeping them separate means your
+#      open-source code stays generic.
+#
+#   2. ENVIRONMENT DIFFERENCES: A single set of .tf files can be
+#      used across dev, staging, and prod by providing different
+#      .tfvars files:
+#        terraform apply -var-file=dev.tfvars
+#        terraform apply -var-file=prod.tfvars
+#
+#   3. COLLABORATION: Each team member can have their own .tfvars
+#      with their own key_name, without modifying shared code.
+#
+#   4. CI/CD: The pipeline injects variables via environment variables
+#      or -var-file, never by modifying .tf files.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# AWS REGION
+# Change if you prefer a different region.
+# All regions: us-east-1, us-east-2, us-west-1, us-west-2, eu-west-1, etc.
+# -----------------------------------------------------------------------------
+# aws_region = "us-east-1"
+
+# -----------------------------------------------------------------------------
+# EC2 KEY PAIR — 🔴 REQUIRED! You MUST set this before running terraform.
+#
+# This must be the NAME of an EXISTING EC2 Key Pair in your AWS account.
+# To create one:
+#   1. AWS Console: EC2 → Key Pairs → Create key pair
+#   2. Download the .pem file and chmod 400 it
+#   3. Use that key pair NAME here
+#
+# Example:
+#   key_name = "my-aws-key"
+# -----------------------------------------------------------------------------
+key_name = "CHANGE_ME_TO_YOUR_KEY_PAIR_NAME"
+
+# -----------------------------------------------------------------------------
+# INSTANCE TYPE
+# t3.small is the recommended default for this K8s lab (2 vCPU, 2 GB RAM).
+# Alternatives: t3.medium (4 GB RAM), t3a.small (AMD EPYC, cheaper)
+# -----------------------------------------------------------------------------
+# instance_type = "t3.small"
+
+# -----------------------------------------------------------------------------
+# UBUNTU VERSION
+# jammy  = 22.04 LTS (recommended, most battle-tested)
+# noble  = 24.04 LTS (newer, less tested with K8s tooling)
+# focal  = 20.04 LTS (older, approaching EOL)
+# -----------------------------------------------------------------------------
+# ubuntu_codename = "jammy"
+
+# -----------------------------------------------------------------------------
+# VPC & SUBNET CIDRs
+# Change only if 10.1.0.0 conflicts with existing VPCs in your account.
+# -----------------------------------------------------------------------------
+# vpc_cidr    = "10.1.0.0/24"
+# subnet_cidr = "10.1.0.0/28"
+
+# -----------------------------------------------------------------------------
+# PRIVATE IPs
+# These must be within the subnet CIDR range (10.1.0.4–10.1.0.14).
+# Change only if you have IP conflicts with other instances.
+# -----------------------------------------------------------------------------
+# private_ips = {
+#   "ansible-controller" = "10.1.0.7"
+#   "control-plane-01"   = "10.1.0.10"
+#   "worker-01"          = "10.1.0.6"
+#   "worker-02"          = "10.1.0.8"
+# }
+
+# -----------------------------------------------------------------------------
+# ROOT VOLUME SIZE (GB)
+# 20 GB is sufficient. Increase if you plan to store large container images.
+# -----------------------------------------------------------------------------
+# root_volume_size = 20
