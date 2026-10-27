@@ -66,5 +66,32 @@ terraform {
       source  = "hashicorp/aws"
       version = ">= 5.30, < 6.0"
     }
+
+    # ---------------------------------------------------------------
+    # tls — generates RSA keys locally so Terraform can create an
+    #       EC2 Key Pair without requiring the user to have one.
+    #
+    # Introduced because the original project prompted for an
+    # existing key pair name (var.key_name with no default).
+    # Now we auto-generate the key, upload the public key to AWS,
+    # and save the private key locally for SSH access.
+    # ---------------------------------------------------------------
+    tls = {
+      source  = "hashicorp/tls"
+      version = ">= 4.0, < 5.0"
+    }
+
+    # ---------------------------------------------------------------
+    # local — writes the generated private key to disk so the user
+    #         can SSH into instances without manual copy-paste.
+    #
+    # The private key is saved to ~/.ssh/<key_name>.pem with 0600
+    # permissions. The local_file resource is part of the
+    # hashicorp/local provider.
+    # ---------------------------------------------------------------
+    local = {
+      source  = "hashicorp/local"
+      version = ">= 2.0, < 3.0"
+    }
   }
 }

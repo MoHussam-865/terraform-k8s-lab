@@ -31,8 +31,7 @@ All instances: Ubuntu 22.04 LTS, t3.small, 20 GiB encrypted gp3 EBS.
 1. **AWS Account** with programmatic access (Access Key + Secret Key)
 2. **AWS CLI** installed and configured (`aws configure`)
 3. **Terraform** >= 1.5.0 installed
-4. **EC2 Key Pair** created in your AWS account (us-east-1 region)
-5. **SSH client** for connecting to instances
+4. **SSH client** for connecting to instances
 
 ## Quick Start
 
@@ -40,28 +39,22 @@ All instances: Ubuntu 22.04 LTS, t3.small, 20 GiB encrypted gp3 EBS.
 # 1. Clone and enter the project
 cd terraform-k8s-lab
 
-# 2. Create your variable definitions file
-cp terraform.tfvars.example terraform.tfvars
-
-# 3. EDIT terraform.tfvars — set your key_name!
-#    key_name = "your-actual-key-pair-name"
-
-# 4. Initialize Terraform (downloads providers, sets up state)
+# 2. Initialize Terraform (downloads providers, sets up state)
 terraform init
 
-# 5. Preview what will be created (NO changes made yet)
+# 3. Preview what will be created (NO changes made yet)
 terraform plan
 
-# 6. Create the infrastructure
+# 4. Create the infrastructure — key pair is auto-generated!
 terraform apply
 
-# 7. Generate Ansible inventory
+# 5. Generate Ansible inventory
 terraform output -raw ansible_inventory > hosts.ini
 
-# 8. SSH into the ansible controller:
-ssh -i ~/.ssh/your-key.pem ubuntu@<public-ip-from-output>
+# 6. SSH into the ansible controller (key auto-saved to ~/.ssh/<key_name>.pem):
+ssh -i ~/.ssh/k8s-lab-key.pem ubuntu@<public-ip-from-output>
 
-# 9. When you're done, destroy everything
+# 7. When you're done, destroy everything
 terraform destroy
 ```
 
@@ -109,7 +102,7 @@ terraform destroy
 | `locals.tf` | Computed local values | Plan/apply |
 | `networking.tf` | VPC, Subnet, IGW, Route Table | Plan/apply |
 | `security.tf` | Security Groups and rules | Plan/apply |
-| `ec2.tf` | EC2 instances (AMI lookup + 4 servers) | Plan/apply |
+| `ec2.tf` | EC2 instances (AMI lookup + auto SSH key pair + 4 servers) | Plan/apply |
 | `outputs.tf` | Output values (IPs, IDs, inventory) | After apply |
 | `terraform.tfvars.example` | Variable template (committed) | Never |
 | `.gitignore` | Files excluded from Git | `git add` |
@@ -137,7 +130,7 @@ terraform destroy
 | Problem | Fix |
 |---|---|
 | No credentials | `aws configure` or set AWS_ACCESS_KEY_ID |
-| Key pair missing | Create key pair in us-east-1 |
+| Key pair not found on disk | Check `terraform output key_pair_private_key_path` for the file location |
 | t3.small denied | Request limit increase or try t3.micro |
 | No internet on instances | Check route: 0.0.0.0/0 → IGW |
 | Plan shows AMI change | Expected — lifecycle.ignore_changes handles it |

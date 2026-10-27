@@ -14,6 +14,25 @@
 # =============================================================================
 
 # =============================================================================
+# SSH KEY PAIR OUTPUTS
+# =============================================================================
+
+output "key_pair_name" {
+  description = "Name of the SSH key pair created by Terraform. Use: ssh -i ~/.ssh/<key_name>.pem ubuntu@<public-ip>"
+  value       = aws_key_pair.this.key_name
+}
+
+output "key_pair_private_key_path" {
+  description = "Local path to the generated private key file for SSH"
+  value       = local_file.private_key.filename
+}
+
+output "key_pair_fingerprint" {
+  description = "Fingerprint of the SSH key pair in AWS"
+  value       = aws_key_pair.this.fingerprint
+}
+
+# =============================================================================
 # VPC & NETWORKING OUTPUTS
 # =============================================================================
 

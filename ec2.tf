@@ -121,6 +121,68 @@ data "aws_ami" "ubuntu" {
 }
 
 # =============================================================================
+# SSH KEY PAIR GENERATION — Fully automated, no user prompt needed.
+#
+# These resources generate an RSA-4096 key pair locally, upload the
+# public key to AWS as an EC2 Key Pair, and save the private key to
+# ~/.ssh/<key_name>.pem for SSH access.
+#
+# Before this change, the project required a PRE-EXISTING key pair in
+# AWS and prompted for the key_name interactively (no default value).
+# Now Terraform handles the entire lifecycle:
+#   1. tls_private_key.this   — generates RSA-4096 key locally
+#   2. aws_key_pair.this      — imports public key into AWS
+#   3. local_file.private_key — saves private key to disk (0600 perms)
+#
+# SECURITY NOTE: The private key WILL be stored in Terraform state
+# (as a side effect of tls_private_key). For a learning lab this is
+# acceptable. In production, generate keys outside Terraform and use
+# the aws_key_pair resource to import only the public key.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# RESOURCE: tls_private_key — Generate an RSA-4096 key pair locally.
+# Terraform runs this on your machine — the private key never touches
+# AWS during generation. Only the public key is uploaded.
+# -----------------------------------------------------------------------------
+resource "tls_private_key" "this" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+# -----------------------------------------------------------------------------
+# RESOURCE: aws_key_pair — Upload the public key to AWS so EC2 can
+# inject it into ~/.ssh/authorized_keys on instance launch.
+#
+# AWS only stores the PUBLIC key (fingerprint). The private key stays
+# in Terraform state and in the local file we create below.
+# -----------------------------------------------------------------------------
+resource "aws_key_pair" "this" {
+  key_name   = var.key_name
+  public_key = tls_private_key.this.public_key_openssh
+
+  tags = {
+    Name = var.key_name
+  }
+}
+
+# -----------------------------------------------------------------------------
+# RESOURCE: local_file — Save the private key to disk so you can SSH.
+#
+# File is saved to ~/.ssh/<key_name>.pem with 0600 permissions
+# (owner-only read/write — SSH refuses keys with wider permissions).
+#
+# If you change key_name on a subsequent apply, a NEW file is written
+# (and a NEW key pair is created in AWS, since key_name changes force
+# replacement of aws_key_pair).
+# -----------------------------------------------------------------------------
+resource "local_file" "private_key" {
+  content         = tls_private_key.this.private_key_pem
+  filename        = pathexpand("~/.ssh/${var.key_name}.pem")
+  file_permission = "0600"
+}
+
+# =============================================================================
 # EC2 INSTANCES — 4 servers for the Kubernetes lab
 #
 # for_each creates all instances from ONE resource block.
@@ -129,6 +191,8 @@ data "aws_ami" "ubuntu" {
 #   aws_instance.this["control-plane-01"]
 #   aws_instance.this["worker-01"]
 #   aws_instance.this["worker-02"]
+#
+# Each instance uses the auto-generated SSH key pair (aws_key_pair.this.key_name).
 # =============================================================================
 resource "aws_instance" "this" {
 
@@ -192,16 +256,14 @@ resource "aws_instance" "this" {
   # ---------------------------------------------------------------------------
   # key_name — The EC2 Key Pair for SSH authentication.
   #
-  # This MUST pre-exist in AWS. Terraform can't auto-create key pairs
-  # from existing private keys (though there's an aws_key_pair resource
-  # if you want to create it in Terraform — but then the private key is
-  # stored in state, which is a security concern).
+  # This key pair is AUTO-CREATED by Terraform (see aws_key_pair.this above).
+  # We reference its name here so EC2 injects the generated PUBLIC key into
+  # ~/.ssh/authorized_keys on launch.
   #
-  # AWS injects the PUBLIC key into ~/.ssh/authorized_keys for the
-  # default user (ubuntu@ for Ubuntu AMIs, ec2-user@ for Amazon Linux).
-  # You SSH with: ssh -i ~/.ssh/your-key.pem ubuntu@<public-ip>
+  # You SSH with: ssh -i ~/.ssh/<key_name>.pem ubuntu@<public-ip>
+  # (the private key was auto-saved to ~/.ssh/<key_name>.pem)
   # ---------------------------------------------------------------------------
-  key_name = var.key_name
+  key_name = aws_key_pair.this.key_name
 
   # ---------------------------------------------------------------------------
   # root_block_device — The root EBS volume configuration.

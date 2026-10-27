@@ -13,8 +13,8 @@
 #        cp terraform.tfvars.example terraform.tfvars
 #
 #   2. EDIT terraform.tfvars with your actual values:
-#        - Set key_name to your existing EC2 Key Pair name
-#        - Optionally change instance_type, region, etc.
+#        - Optionally change key_name (a default of "k8s-lab-key" is used otherwise)
+#        - Or change instance_type, region, etc.
 #
 #   3. The real terraform.tfvars is in .gitignore — it will NEVER be
 #      committed. This protects your configuration details.
@@ -48,18 +48,16 @@
 # aws_region = "us-east-1"
 
 # -----------------------------------------------------------------------------
-# EC2 KEY PAIR — 🔴 REQUIRED! You MUST set this before running terraform.
+# SSH KEY PAIR — OPTIONAL. Terraform auto-creates the key pair with a
+# sensible default name ("k8s-lab-key"). If you want a custom name,
+# uncomment and change the line below.
 #
-# This must be the NAME of an EXISTING EC2 Key Pair in your AWS account.
-# To create one:
-#   1. AWS Console: EC2 → Key Pairs → Create key pair
-#   2. Download the .pem file and chmod 400 it
-#   3. Use that key pair NAME here
+# The private key is auto-saved to ~/.ssh/<key_name>.pem for SSH access.
 #
 # Example:
-#   key_name = "my-aws-key"
+#   key_name = "my-k8s-key"
 # -----------------------------------------------------------------------------
-key_name = "CHANGE_ME_TO_YOUR_KEY_PAIR_NAME"
+# key_name = "k8s-lab-key"
 
 # -----------------------------------------------------------------------------
 # INSTANCE TYPE

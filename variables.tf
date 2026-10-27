@@ -32,14 +32,17 @@ variable "aws_region" {
 }
 
 # =============================================================================
-# EC2 KEY PAIR — No default, MUST be provided by the user!
+# EC2 KEY PAIR — Terraform creates it; you just choose the name.
 # =============================================================================
 variable "key_name" {
-  description = "Name of an existing AWS EC2 Key Pair for SSH access. MUST exist BEFORE running terraform."
+  description = "Name for the SSH key pair that Terraform will create in AWS. The private key is saved to ~/.ssh/<key_name>.pem"
   type        = string
+  default     = "k8s-lab-key"
 
-  # No default — forces interactive prompt or tfvars file.
-  # Key pairs must pre-exist in AWS; Terraform can't auto-create them.
+  # Default provided — no interactive prompt needed.
+  # Terraform auto-generates an RSA-4096 key and creates the
+  # aws_key_pair resource from the public key. The private key
+  # is saved locally to ~/.ssh/<key_name>.pem.
 
   validation {
     # Allow only letters, numbers, underscores, and hyphens.
