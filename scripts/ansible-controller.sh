@@ -121,12 +121,12 @@ echo "Ansible setup completed successfully"
 # Create K8s cluster using Ansible playbook
 # ----------------------
 
-# echo "Creating k8s cluster using Ansible playbook..."
+echo "Creating k8s cluster using Ansible playbook..."
 
-# git clone https://github.com/MoHussam-865/anible-k8s-project
-# cd anible-k8s-project
-# sed -i '1s/^\xEF\xBB\xBF//' ansible.cfg
-# ansible-playbook playbooks/site.yml
+git clone https://github.com/MoHussam-865/anible-k8s-project
+cd anible-k8s-project
+sed -i '1s/^\xEF\xBB\xBF//' ansible.cfg
+ansible-playbook playbooks/site.yml
 
-# echo "cluster created successfully"
+echo "cluster created successfully"
 
