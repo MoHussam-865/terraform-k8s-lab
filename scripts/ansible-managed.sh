@@ -1,5 +1,5 @@
 #!/bin/bash
-
+set -e
 sudo apt update
 
 # install python3

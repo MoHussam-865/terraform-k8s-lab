@@ -1,5 +1,5 @@
 #!/bin/bash
-
+set -e
 sudo apt update
 
 # install python3
@@ -115,10 +115,20 @@ echo "Ansible setup completed successfully"
 
 echo "Creating k8s cluster using Ansible playbook..."
 
+cd /home/ansadmin
+
 git clone https://github.com/MoHussam-865/anible-k8s-project
-cd anible-k8s-project
+
+cd /home/ansadmin/anible-k8s-project
+
 sed -i '1s/^\xEF\xBB\xBF//' ansible.cfg
+
+chown -R ansadmin:ansadmin /home/ansadmin/anible-k8s-project
+
+sudo -u ansadmin bash -c "
+cd /home/ansadmin/anible-k8s-project
 ansible-playbook playbooks/site.yml
+"
 
 echo "cluster created successfully"
 
