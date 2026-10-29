@@ -59,20 +59,20 @@ output "security_group_id" {
 # Usage: aws ec2 stop-instances --instance-ids $(terraform output -json instance_ids | jq -r '.["ansible-controller"]')
 output "instance_ids" {
   description = "Map of instance names to their EC2 instance IDs"
-  value = {
-    for name, instance in aws_instance.this :
-    name => instance.id
-  }
+  value = merge(
+    { for name, inst in aws_instance.managed : name => inst.id },
+    { "ansible-controller" = aws_instance.ansible_controller.id }
+  )
 }
 
 # Public IPv4 addresses — for SSH access from your local machine
 # Usage: ssh -i ~/.ssh/your-key.pem ubuntu@<public-ip>
 output "public_ips" {
   description = "Map of instance names to their public IPv4 addresses (for SSH)"
-  value = {
-    for name, instance in aws_instance.this :
-    name => instance.public_ip
-  }
+  value = merge(
+    { for name, inst in aws_instance.managed : name => inst.public_ip },
+    { "ansible-controller" = aws_instance.ansible_controller.public_ip }
+  )
 }
 
 # Private IPv4 addresses — FIXED (from locals.tf), for Ansible inventory.
@@ -85,19 +85,19 @@ output "public_ips" {
 #   10.1.0.8
 output "private_ips" {
   description = "Map of instance names to their fixed private IPv4 addresses"
-  value = {
-    for name, instance in aws_instance.this :
-    name => instance.private_ip
-  }
+  value = merge(
+    { for name, inst in aws_instance.managed : name => inst.private_ip },
+    { "ansible-controller" = aws_instance.ansible_controller.private_ip }
+  )
 }
 
 # Public DNS hostnames — alternative to IPs for SSH
 output "public_dns" {
   description = "Map of instance names to their public DNS hostnames"
-  value = {
-    for name, instance in aws_instance.this :
-    name => instance.public_dns
-  }
+  value = merge(
+    { for name, inst in aws_instance.managed : name => inst.public_dns },
+    { "ansible-controller" = aws_instance.ansible_controller.public_dns }
+  )
 }
 # =============================================================================
 # ANSIBLE INVENTORY — Ready-to-use inventory file
@@ -114,14 +114,14 @@ output "ansible_inventory" {
     # Run: terraform output -raw ansible_inventory > hosts.ini
 
     [ansible_controller]
-    ${aws_instance.this["ansible-controller"].public_ip} ansible_user=ubuntu private_ip=${aws_instance.this["ansible-controller"].private_ip}
+    ${aws_instance.ansible_controller.public_ip} ansible_user=ubuntu private_ip=${aws_instance.ansible_controller.private_ip}
 
     [control_plane]
-    ${aws_instance.this["control-plane-01"].public_ip} ansible_user=ubuntu private_ip=${aws_instance.this["control-plane-01"].private_ip}
+    ${aws_instance.managed["control-plane-01"].public_ip} ansible_user=ubuntu private_ip=${aws_instance.managed["control-plane-01"].private_ip}
 
     [workers]
-    ${aws_instance.this["worker-01"].public_ip} ansible_user=ubuntu private_ip=${aws_instance.this["worker-01"].private_ip}
-    ${aws_instance.this["worker-02"].public_ip} ansible_user=ubuntu private_ip=${aws_instance.this["worker-02"].private_ip}
+    ${aws_instance.managed["worker-01"].public_ip} ansible_user=ubuntu private_ip=${aws_instance.managed["worker-01"].private_ip}
+    ${aws_instance.managed["worker-02"].public_ip} ansible_user=ubuntu private_ip=${aws_instance.managed["worker-02"].private_ip}
 
     [k8s_cluster:children]
     control_plane

@@ -70,8 +70,8 @@ locals {
   #   4. Easy to read — all instance data in one place
   #
   # Note: Each key becomes the Terraform resource address:
-  #   aws_instance.this["ansible-controller"]
-  #   aws_instance.this["control-plane-01"]
+  #   aws_instance.managed["control-plane-01"]
+  #   aws_instance.managed["worker-01"]
   #   This makes terraform state and plan output much more readable.
   # ---------------------------------------------------------------------------
   instances = {
@@ -97,6 +97,20 @@ locals {
       role       = "worker"
       # Second worker for HA demonstrations and load distribution.
     }
+  }
+# ---------------------------------------------------------------------------
+  # MANAGED INSTANCES — K8s nodes only (excludes ansible-controller)
+  #
+  # We filter the full instances map to get ONLY the 3 nodes that Ansible
+  # will manage: control-plane-01, worker-01, worker-02.
+  #
+  # These must be created and bootstrapped BEFORE the ansible-controller
+  # instance is created. This filtered map lets us create them from a
+  # dedicated aws_instance.managed resource block.
+  # ---------------------------------------------------------------------------
+  managed_instances = {
+    for name, config in local.instances : name => config
+    if config.role != "ansible-controller"
   }
   # ---------------------------------------------------------------------------
   # Why a map instead of count with a list?

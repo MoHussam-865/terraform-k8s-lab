@@ -115,3 +115,5 @@ desktop.ini
 # Backup files
 *.backup
 *.bak
+
+keys/

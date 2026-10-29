@@ -183,85 +183,57 @@ resource "local_file" "private_key" {
 }
 
 # =============================================================================
-# EC2 INSTANCES — 4 servers for the Kubernetes lab
+# EC2 INSTANCES — Managed K8s nodes (3 servers)
 #
-# for_each creates all instances from ONE resource block.
-# Terraform generates 4 instances, each with a unique address:
-#   aws_instance.this["ansible-controller"]
-#   aws_instance.this["control-plane-01"]
-#   aws_instance.this["worker-01"]
-#   aws_instance.this["worker-02"]
+# Instead of creating all 4 instances from one block, we SPLIT them into
+# two resource blocks for controlled creation order + provisioning:
 #
-# Each instance uses the auto-generated SSH key pair (aws_key_pair.this.key_name).
+#   aws_instance.managed             — 3 K8s nodes (created FIRST, bootstrapped)
+#   aws_instance.ansible_controller  — 1 Ansible mgmt server (created AFTER)
+#
+# This ordering ensures the ansible controller connects immediately to the
+# managed nodes (they have ansadmin user + our SSH pub key from the start).
 # =============================================================================
-resource "aws_instance" "this" {
+resource "aws_instance" "managed" {
 
   # ---------------------------------------------------------------------------
-  # for_each — creates multiple resource instances from a single block.
-  #
-  # for_each accepts a map or set. For each entry:
-  #   each.key   → "ansible-controller", "worker-01", ...
-  #   each.value → { private_ip = "10.1.0.7", role = "ansible-controller" }
-  #
-  # THE #1 MISTAKE: Using a value unknown until apply time (like a resource
-  # ID). Terraform errors: "The 'for_each' value depends on resource
-  # attributes..." Only use variables, locals, and data sources in for_each.
+  # for_each — only the 3 managed K8s nodes (filtered via local.managed_instances)
+  # Each entry: "control-plane-01", "worker-01", "worker-02"
   # ---------------------------------------------------------------------------
-  for_each = local.instances
+  for_each = local.managed_instances
 
   # ---------------------------------------------------------------------------
   # ami — Amazon Machine Image (OS template).
-  # data.aws_ami.ubuntu.id resolves to something like "ami-0123456789abcdef0"
-  # This is dynamic — we never hardcode AMI IDs because they differ per
-  # region and get deprecated over time.
   # ---------------------------------------------------------------------------
   ami = data.aws_ami.ubuntu.id
 
   # ---------------------------------------------------------------------------
-  # instance_type — Hardware spec: t3.small = 2 vCPU, 2 GB RAM.
-  # t3 is "burstable" — accumulates CPU credits during idle, uses them
-  # during bursts. Unlimited mode included by default (never throttles).
-  # Economics: ~$0.0208/hr × 4 instances ≈ $60/month (on-demand).
+  # instance_type — t3.small = 2 vCPU, 2 GB RAM
   # ---------------------------------------------------------------------------
   instance_type = var.instance_type
 
   # ---------------------------------------------------------------------------
-  # subnet_id — All instances in the same public subnet.
-  # Creates implicit dependency: subnet must exist before EC2 can launch.
+  # subnet_id — All instances in the same public subnet
   # ---------------------------------------------------------------------------
   subnet_id = aws_subnet.public.id
 
   # ---------------------------------------------------------------------------
-  # vpc_security_group_ids — Security Groups attached to the primary ENI.
-  # NOTE: vpc_security_group_ids (plural) is for VPC. security_groups
-  # (singular) was for EC2-Classic (deprecated). Wrong one fails at plan.
+  # vpc_security_group_ids — Security Group
   # ---------------------------------------------------------------------------
   vpc_security_group_ids = [aws_security_group.k8s_lab.id]
 
   # ---------------------------------------------------------------------------
-  # associate_public_ip_address — Assign a public IPv4.
-  # Explicit ensures it always works regardless of subnet default.
-  # Public IP is released on stop/terminate. Use Elastic IP for permanence.
+  # associate_public_ip_address — Public IPv4 for SSH access
   # ---------------------------------------------------------------------------
   associate_public_ip_address = true
 
   # ---------------------------------------------------------------------------
-  # private_ip — Fixed IP from our map. CRITICAL for Ansible:
-  # inventory file stays the same across destroy/apply cycles.
-  # Must be: within subnet CIDR, not AWS-reserved, unique.
-  # Terraform validates subnet CIDR containment at plan time.
+  # private_ip — Fixed from local.managed_instances config
   # ---------------------------------------------------------------------------
   private_ip = each.value.private_ip
 
   # ---------------------------------------------------------------------------
-  # key_name — The EC2 Key Pair for SSH authentication.
-  #
-  # This key pair is AUTO-CREATED by Terraform (see aws_key_pair.this above).
-  # We reference its name here so EC2 injects the generated PUBLIC key into
-  # ~/.ssh/authorized_keys on launch.
-  #
-  # You SSH with: ssh -i ~/.ssh/<key_name>.pem ubuntu@<public-ip>
-  # (the private key was auto-saved to ~/.ssh/<key_name>.pem)
+  # key_name — EC2 Key Pair (auto-generated, saved to ~/.ssh/<name>.pem)
   # ---------------------------------------------------------------------------
   key_name = aws_key_pair.this.key_name
 
@@ -364,6 +336,44 @@ resource "aws_instance" "this" {
   }
 
   # ===========================================================================
+  # CONNECTION — SSH configuration for Terraform provisioners
+  #
+  # Connect as ubuntu (default AMI user) using the auto-generated key pair.
+  # The ansadmin user doesn't exist yet — it's created by the bootstrap script.
+  # ===========================================================================
+  connection {
+    type        = "ssh"
+    user        = "ubuntu"
+    host        = self.public_ip
+    private_key = tls_private_key.this.private_key_pem
+    timeout     = "10m"
+  }
+
+  # ===========================================================================
+  # PROVISIONER 1: Upload ansible-managed.sh bootstrap script
+  # ===========================================================================
+  provisioner "file" {
+    source      = "${path.module}/scripts/ansible-managed.sh"
+    destination = "/home/ubuntu/ansible-managed.sh"
+  }
+
+  # ===========================================================================
+  # PROVISIONER 2: Run the bootstrap script + add SSH public key
+  #
+  # Runs ansible-managed.sh (creates ansadmin user, installs dependencies,
+  # configures SSH), then appends the public key from ./keys/id_rsa.pub
+  # to ansadmin's authorized_keys so the ansible controller can connect.
+  # ===========================================================================
+  provisioner "remote-exec" {
+    inline = [
+      "sudo bash /home/ubuntu/ansible-managed.sh",
+      "echo '${trimspace(file("${path.module}/keys/id_rsa.pub"))}' | sudo tee -a /home/ansadmin/.ssh/authorized_keys",
+      "sudo chown ansadmin:ansadmin /home/ansadmin/.ssh/authorized_keys",
+      "sudo chmod 600 /home/ansadmin/.ssh/authorized_keys",
+    ]
+  }
+
+  # ===========================================================================
   # LIFECYCLE — Controls how Terraform manages this resource's lifecycle
   #
   # The lifecycle block customizes Terraform's standard create/update/destroy
@@ -427,22 +437,122 @@ resource "aws_instance" "this" {
 }
 
 # =============================================================================
-# EC2 INSTANCES COMPLETE!
+# EC2 INSTANCES — Managed Nodes Complete!
 #
-# What Terraform will create:
-#   aws_instance.this["ansible-controller"]  → 10.1.0.7  (Ansible mgmt)
-#   aws_instance.this["control-plane-01"]    → 10.1.0.10 (K8s control plane)
-#   aws_instance.this["worker-01"]           → 10.1.0.6  (K8s worker)
-#   aws_instance.this["worker-02"]           → 10.1.0.8  (K8s worker)
+# What Terraform will create for the 3 managed K8s nodes:
+#   aws_instance.managed["control-plane-01"]  → 10.1.0.10
+#   aws_instance.managed["worker-01"]         → 10.1.0.6
+#   aws_instance.managed["worker-02"]         → 10.1.0.8
 #
-# Each instance:
-#   - Runs Ubuntu 22.04 LTS (latest patched AMI)
-#   - Has t3.small (2 vCPU, 2 GB RAM)
-#   - Lives in the public subnet with internet access
-#   - Has the k8s-lab security group (SSH + K8s API open)
-#   - Gets a public IP (for SSH access from your machine)
-#   - Has a fixed private IP (for Ansible inventory predictability)
-#   - Has a 20 GiB encrypted gp3 root volume
-#   - Won't be destroyed just because a new AMI is released
+# Each managed node: Ubuntu 22.04 LTS, t3.small, 20 GiB gp3,
+# ansadmin user with NOPASSWD sudo + authorized_keys = id_rsa.pub.
+# =============================================================================
+
+# =============================================================================
+# AWS INSTANCE: ansible_controller — Ansible management server
 #
-# Next step: outputs.tf — expose these values so we know what was created.
+# Created AFTER aws_instance.managed is fully bootstrapped.
+# depends_on = [aws_instance.managed] ensures ordering.
+#
+# Provisioners:
+#   1. Create ansadmin user + .ssh directory
+#   2. Copy ./keys/id_rsa + id_rsa.pub into /home/ansadmin/.ssh/
+#   3. Copy ansible-controller.sh script
+#   4. Fix key permissions & run ansible-controller.sh
+# =============================================================================
+resource "aws_instance" "ansible_controller" {
+
+  depends_on = [aws_instance.managed]
+
+  ami = data.aws_ami.ubuntu.id
+  instance_type = var.instance_type
+  subnet_id = aws_subnet.public.id
+  vpc_security_group_ids = [aws_security_group.k8s_lab.id]
+  associate_public_ip_address = true
+  private_ip = local.instances["ansible-controller"].private_ip
+  key_name = aws_key_pair.this.key_name
+
+  root_block_device {
+    volume_size           = var.root_volume_size
+    volume_type           = "gp3"
+    delete_on_termination = true
+    encrypted             = true
+    tags = {
+      Name = "${local.name_prefix}-ansible-controller-root-vol"
+    }
+  }
+
+  tags = {
+    Name = "${local.name_prefix}-ansible-controller"
+    Role = local.instances["ansible-controller"].role
+  }
+
+  connection {
+    type        = "ssh"
+    user        = "ubuntu"
+    host        = self.public_ip
+    private_key = tls_private_key.this.private_key_pem
+    timeout     = "10m"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "sudo useradd -m -s /bin/bash ansadmin || echo 'user already exists'",
+      "sudo mkdir -p /home/ansadmin/.ssh",
+      "sudo chown -R ansadmin:ansadmin /home/ansadmin/.ssh",
+      "sudo chmod 700 /home/ansadmin/.ssh",
+    ]
+  }
+  # ===========================================================================
+  # PROVISIONER: Copy SSH keys (id_rsa + id_rsa.pub) from ./keys/ folder
+  #
+  # These pre-generated keys match the public key appended to managed
+  # nodes' authorized_keys. The controller needs id_rsa to SSH as ansadmin.
+  # The ansible-controller.sh script checks for id_rsa and skips keygen.
+  # ===========================================================================
+  provisioner "file" {
+    source      = "${path.module}/keys/id_rsa"
+    destination = "/home/ansadmin/.ssh/id_rsa"
+  }
+
+  provisioner "file" {
+    source      = "${path.module}/keys/id_rsa.pub"
+    destination = "/home/ansadmin/.ssh/id_rsa.pub"
+  }
+
+  # ===========================================================================
+  # PROVISIONER: Upload ansible-controller.sh bootstrap script
+  # ===========================================================================
+  provisioner "file" {
+    source      = "${path.module}/scripts/ansible-controller.sh"
+    destination = "/home/ubuntu/ansible-controller.sh"
+  }
+
+  # ===========================================================================
+  # PROVISIONER: Fix key permissions & run the controller script
+  #
+  # Last step: fix ownership and permissions on copied keys, then run
+  # ansible-controller.sh. The script sets up /etc/ansible/ and runs
+  # the ansible-playbook to build the K8s cluster on managed nodes.
+  # ===========================================================================
+  provisioner "remote-exec" {
+    inline = [
+      "sudo chown ansadmin:ansadmin /home/ansadmin/.ssh/id_rsa /home/ansadmin/.ssh/id_rsa.pub",
+      "sudo chmod 600 /home/ansadmin/.ssh/id_rsa",
+      "sudo chmod 644 /home/ansadmin/.ssh/id_rsa.pub",
+      "sudo bash /home/ubuntu/ansible-controller.sh",
+    ]
+  }
+}
+
+# =============================================================================
+# EC2 INSTANCES — Complete!
+#
+# Creation order:
+#   1-3. aws_instance.managed (K8s nodes) — parallel creation, each bootstrapped
+#   4.   aws_instance.ansible_controller  — created only after managed nodes done
+#
+# The managed nodes get ansadmin, NOPASSWD sudo, and authorized_keys with
+# our SSH public key. The controller gets the matching private key and runs
+# ansible-playbook to provision the K8s cluster automatically.
+# =============================================================================
