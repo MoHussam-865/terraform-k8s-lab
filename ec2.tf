@@ -502,6 +502,15 @@ resource "aws_instance" "ansible_controller" {
   # nodes' authorized_keys. The controller needs id_rsa to SSH as ansadmin.
   # The ansible-controller.sh script checks for id_rsa and skips keygen.
   # ===========================================================================
+  provisioner "remote-exec" {
+    inline = [
+      "sudo useradd -m -s /bin/bash ansadmin || echo 'user already exists'",
+      "sudo mkdir -p /home/ansadmin/.ssh",
+      "sudo chown -R ansadmin:ansadmin /home/ansadmin/.ssh",
+      "sudo chmod 700 /home/ansadmin/.ssh",
+    ]
+  }
+  
   provisioner "file" {
     source      = "${path.module}/keys/id_rsa"
     destination = "/home/ansadmin/.ssh/id_rsa"

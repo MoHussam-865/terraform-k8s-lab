@@ -58,14 +58,6 @@ sudo chmod 600 /home/ansadmin/.ssh/authorized_keys
 echo "Master node detected. Installing Ansible..."
 
 
-# generate SSH keys if they don't exist
-
-if [ ! -f /home/ansadmin/.ssh/id_rsa ]; then
-    sudo -u ansadmin ssh-keygen -t rsa -b 4096 -N "" -f /home/ansadmin/.ssh/id_rsa
-else
-    echo "SSH keys already exist"
-fi
-
 # Create Ansible inventory
 
 sudo mkdir -p /etc/ansible
