@@ -357,6 +357,10 @@ resource "aws_instance" "managed" {
     destination = "/home/ubuntu/ansible-managed.sh"
   }
 
+  provisioner "file" {
+    source      = "${path.module}/keys/id_rsa.pub"
+    destination = "/home/ubuntu/id_rsa.pub"
+  }
   # ===========================================================================
   # PROVISIONER 2: Run the bootstrap script + add SSH public key
   #
@@ -367,7 +371,8 @@ resource "aws_instance" "managed" {
   provisioner "remote-exec" {
     inline = [
       "sudo bash /home/ubuntu/ansible-managed.sh",
-      "echo '${trimspace(file("${path.module}/keys/id_rsa.pub"))}' | sudo tee -a /home/ansadmin/.ssh/authorized_keys",
+      "sudo tee -a /home/ansadmin/.ssh/authorized_keys < /home/ubuntu/id_rsa.pub",
+      "sudo rm '/home/ubuntu/id_rsa.pub'",
       "sudo chown ansadmin:ansadmin /home/ansadmin/.ssh/authorized_keys",
       "sudo chmod 600 /home/ansadmin/.ssh/authorized_keys",
     ]
