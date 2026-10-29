@@ -513,12 +513,12 @@ resource "aws_instance" "ansible_controller" {
   
   provisioner "file" {
     source      = "${path.module}/keys/id_rsa"
-    destination = "/home/ansadmin/.ssh/id_rsa"
+    destination = "/tmp/id_rsa"
   }
 
   provisioner "file" {
     source      = "${path.module}/keys/id_rsa.pub"
-    destination = "/home/ansadmin/.ssh/id_rsa.pub"
+    destination = "/tmp/id_rsa.pub"
   }
 
   # ===========================================================================
@@ -538,6 +538,8 @@ resource "aws_instance" "ansible_controller" {
   # ===========================================================================
   provisioner "remote-exec" {
     inline = [
+      "sudo mv /tmp/id_rsa /home/ansadmin/.ssh/id_rsa",
+      "sudo mv /tmp/id_rsa.pub /home/ansadmin/.ssh/id_rsa.pub",
       "sudo chown ansadmin:ansadmin /home/ansadmin/.ssh/id_rsa /home/ansadmin/.ssh/id_rsa.pub",
       "sudo chmod 600 /home/ansadmin/.ssh/id_rsa",
       "sudo chmod 644 /home/ansadmin/.ssh/id_rsa.pub",
