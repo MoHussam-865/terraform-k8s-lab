@@ -57,76 +57,13 @@ locals {
   }
 
   # ---------------------------------------------------------------------------
-  # INSTANCE CONFIGURATION MAP
-  #
-  # Instead of writing four nearly-identical resource blocks, we define
-  # the unique data per instance in a local map, then loop over it with
-  # `for_each` in ec2.tf.
-  #
-  # Benefits:
-  #   1. Single source of truth for instance definitions
-  #   2. Adding a 5th instance = one line in this map (no copy-paste!)
-  #   3. Impossible to accidentally configure instances differently
-  #   4. Easy to read — all instance data in one place
-  #
-  # Note: Each key becomes the Terraform resource address:
-  #   aws_instance.managed["control-plane-01"]
-  #   aws_instance.managed["worker-01"]
-  #   This makes terraform state and plan output much more readable.
+  # INVENTORY GROUPS — Used later for Ansible hosts file generation.
+  # These group labels map to the sections in the generated hosts file.
   # ---------------------------------------------------------------------------
-  instances = {
-    "ansible-controller" = {
-      private_ip = "10.1.0.7"
-      role       = "ansible-controller"
-      # This server runs Ansible, not Kubernetes.
-      # It needs SSH access to all other instances.
-    }
-    "control-plane-01" = {
-      private_ip = "10.1.0.10"
-      role       = "control-plane"
-      # This is the Kubernetes control plane node.
-      # It runs: kube-apiserver, etcd, controller-manager, scheduler.
-    }
-    "worker-01" = {
-      private_ip = "10.1.0.6"
-      role       = "worker"
-      # Worker nodes run user workloads (pods).
-    }
-    "worker-02" = {
-      private_ip = "10.1.0.8"
-      role       = "worker"
-      # Second worker for HA demonstrations and load distribution.
-    }
+  inventory_groups = {
+    haproxy    = "haproxy"
+    masters    = "masters"
+    workers    = "workers"
+    prometheus = "prometheus"
   }
-# ---------------------------------------------------------------------------
-  # MANAGED INSTANCES — K8s nodes only (excludes ansible-controller)
-  #
-  # We filter the full instances map to get ONLY the 3 nodes that Ansible
-  # will manage: control-plane-01, worker-01, worker-02.
-  #
-  # These must be created and bootstrapped BEFORE the ansible-controller
-  # instance is created. This filtered map lets us create them from a
-  # dedicated aws_instance.managed resource block.
-  # ---------------------------------------------------------------------------
-  managed_instances = {
-    for name, config in local.instances : name => config
-    if config.role != "ansible-controller"
-  }
-  # ---------------------------------------------------------------------------
-  # Why a map instead of count with a list?
-  #
-  #   count approach:
-  #     resource "aws_instance" "this" { count = 4 ... }
-  #     Problem: instances are indexed as this[0], this[1], this[2], this[3]
-  #     Adding/removing an instance in the MIDDLE shifts indices and
-  #     Terraform will DESTROY and RECREATE instances unnecessarily.
-  #
-  #   for_each with map approach (OUR CHOICE):
-  #     resource "aws_instance" "this" { for_each = local.instances ... }
-  #     Instances are indexed by name: this["ansible-controller"]
-  #     Adding/removing only affects the changed entry, NOT the others.
-  #
-  #   This is the #1 most common Terraform mistake.
-  #   for_each > count in 95% of cases.
-  # ---------------------------------------------------------------------------
 }

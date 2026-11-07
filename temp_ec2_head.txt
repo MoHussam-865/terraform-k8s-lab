@@ -1,0 +1,130 @@
+# =============================================================================
+# FILE:        ec2.tf
+# PURPOSE:     Provision all EC2 instances for the Kubernetes lab.
+#              Uses for_each to create 4 servers from a single resource block.
+# LOADED:      At plan time. The dependency graph ensures VPC → Subnet → SG
+#              all exist before any EC2 instance is created.
+# OPTIONAL:    No — this is the whole point of the project!
+# DEPENDS ON:  networking.tf, security.tf, variables.tf, locals.tf
+#
+# INSTANCES CREATED:
+#   - ansible-controller  (10.1.0.7)  — Ansible management server
+#   - control-plane-01    (10.1.0.10) — Kubernetes control plane node
+#   - worker-01           (10.1.0.6)  — Kubernetes worker node
+#   - worker-02           (10.1.0.8)  — Kubernetes worker node
+#
+# KEY DESIGN DECISION: for_each over count
+#
+#   ❌ count = 4 approach:
+#     resource "aws_instance" "this" { count = 4 }
+#     Instances are: this[0], this[1], this[2], this[3]
+#     Adding a 5th instance shifts everything → destroys & recreates
+#
+#   ✅ for_each with map approach (OUR CHOICE):
+#     resource "aws_instance" "this" { for_each = local.instances }
+#     Instances are: this["ansible-controller"], this["worker-01"], etc.
+#     Adding a new entry ONLY creates that one instance. No destruction.
+#
+#   This is the #1 most impactful Terraform design decision beginners face.
+#   for_each is superior in 95% of cases because:
+#     - Stable resource addresses (names, not indices)
+#     - Adding/removing items doesn't cascade
+#     - Better plan output readability
+#     - Direct mapping between code and state
+# =============================================================================
+
+# =============================================================================
+# DATA SOURCE: Find the latest Ubuntu 22.04 LTS AMI
+#
+# Instead of hardcoding an AMI ID like "ami-0c7217cdde317cfec", we use
+# a data source to dynamically find the LATEST Ubuntu AMI for our chosen
+# release. Hardcoded AMIs are fragile — they get deprecated or updated,
+# and AMI IDs differ PER REGION. ami-xxx in us-east-1 is DIFFERENT from
+# ami-xxx in eu-west-1.
+#
+# This data source queries AWS at plan time and returns the most recent
+# AMI matching our filters. Every `terraform plan` checks for a newer
+# AMI. If one exists, Terraform shows it as a change (forces instance
+# recreation unless you prevent it with lifecycle rules).
+# =============================================================================
+data "aws_ami" "ubuntu" {
+
+  # most_recent = true: If multiple AMIs match, return the newest one.
+  # This ensures we always get the latest security patches.
+  most_recent = true
+
+  # ---------------------------------------------------------------------------
+  # owners: Who published the AMI.
+  # "099720109477" is Canonical's OFFICIAL AWS account ID.
+  # Using this (instead of "amazon" or "self") ensures we get the
+  # OFFICIAL Ubuntu image, not a potentially compromised community AMI.
+  #
+  # IMPORTANT: This account ID is DOCUMENTED by Canonical at:
+  # https://ubuntu.com/server/docs/cloud-platforms
+  # Always verify owner IDs from official sources, never from forum posts.
+  # ---------------------------------------------------------------------------
+  owners = ["099720109477"]
+
+  # ---------------------------------------------------------------------------
+  # filter blocks — server-side filtering on the AWS API.
+  # These filters are sent to AWS, which returns only matching AMIs.
+  # This is MUCH faster than fetching all AMIs and filtering locally.
+  #
+  # Each filter has:
+  #   - name:   The AWS AMI attribute to filter on
+  #   - values: A list of acceptable values
+  #
+  # Multiple filters are ANDed together (all must match).
+  # Multiple values within one filter are ORed (any matches).
+  # ---------------------------------------------------------------------------
+
+  # Filter 1: AMI name pattern
+  # Matches official Ubuntu images like:
+  #   ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-20240126
+  filter {
+    name = "name"
+    # Format: ubuntu/images/hvm-ssd/ubuntu-<codename>-<version>-amd64-server-*
+    # hvm = Hardware Virtual Machine (modern virtualization, required for t3)
+    # ssd = EBS-backed with SSD optimization
+    # amd64 = x86_64 architecture (not ARM)
+    # server = Server edition (not minimal or desktop)
+    # * = any date suffix (we want the latest via most_recent = true)
+    values = ["ubuntu/images/hvm-ssd/ubuntu-${var.ubuntu_codename}-22.04-amd64-server-*"]
+  }
+
+  # Filter 2: Virtualization type
+  # hvm = Hardware Virtual Machine. This is the standard virtualization
+  # type for all modern instance types (t2+, m5+, c5+, etc.). The older
+  # "paravirtual" (PV) type is deprecated and not supported by t3.
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+  # Filter 3: Root device type
+  # ebs = Elastic Block Store. The root volume is an EBS volume (persistent
+  # storage separate from the physical host). This allows stopping/starting
+  # instances without losing data and supports snapshots.
+  # "instance-store" = ephemeral (data lost on stop) — not suitable here.
+  filter {
+    name   = "root-device-type"
+    values = ["ebs"]
+  }
+
+  # Filter 4: Architecture
+  # x86_64 = standard Intel/AMD 64-bit. Our t3.small uses x86_64.
+  # arm64 would be for t4g / Graviton instances (different AMI needed).
+  filter {
+    name   = "architecture"
+    values = ["x86_64"]
+  }
+}
+
+# =============================================================================
+# SSH KEY PAIR GENERATION — Fully automated, no user prompt needed.
+#
+# These resources generate an RSA-4096 key pair locally, upload the
+# public key to AWS as an EC2 Key Pair, and save the private key to
+# ~/.ssh/<key_name>.pem for SSH access.
+#
+# Before this change, the project required a PRE-EXISTING key pair in

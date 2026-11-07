@@ -88,35 +88,67 @@ variable "vpc_cidr" {
 variable "subnet_cidr" {
   description = "CIDR block for the public subnet"
   type        = string
-  default     = "10.1.0.0/28"
-  # /28 = 16 IPs, 11 usable after AWS reserves 5 addresses.
-  # AWS reserved: .0(network), .1(router), .2(DNS), .3(future), .15(broadcast)
-  # Leaves 11 assignable IPs for our 4 instances + room to grow.
+  default     = "10.1.0.0/26"
+  # /26 = 64 IPs, 59 usable after AWS reserves 5 addresses.
+  # AWS reserved: .0(network), .1(router), .2(DNS), .3(future), .63(broadcast)
+  # Leaves 59 assignable IPs for up to ~50 instances with room to grow.
+  # Expanded from /28 to /26 to accommodate 8+ instances + scalability.
 }
 
 # =============================================================================
-# PRIVATE IP ADDRESSES — Fixed for Ansible inventory predictability
+# YOUR PUBLIC IP — SSH and admin access restriction
 # =============================================================================
-variable "private_ips" {
-  description = "Map of hostnames to their fixed private IP addresses within the subnet"
-  type        = map(string)
-  default = {
-    "ansible-controller" = "10.1.0.7"
-    "control-plane-01"   = "10.1.0.10"
-    "worker-01"          = "10.1.0.6"
-    "worker-02"          = "10.1.0.8"
-  }
-  # Why fixed IPs?
-  # Ansible needs a predictable inventory file. If IPs change on every
-  # `terraform apply`, your Ansible inventory becomes invalid.
-  # These are within the subnet CIDR range (10.1.0.4–10.1.0.14).
+variable "my_public_ip" {
+  description = "Your public IP address in CIDR notation (e.g., 203.0.113.5/32). Used to restrict SSH and administrative access to the lab."
+  type        = string
+  # NO default — user MUST explicitly provide this value.
+  # This prevents accidental exposure of SSH/admin ports to the entire internet.
 
   validation {
-    condition = alltrue([
-      for ip in var.private_ips :
-      can(regex("^10\\.1\\.0\\.(6|7|8|10)$", ip))
-    ])
-    error_message = "All private IPs must be within 10.1.0.6-10.1.0.10 as specified in the architecture."
+    condition     = can(regex("^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$", var.my_public_ip))
+    error_message = "my_public_ip must be a valid CIDR notation (e.g., 203.0.113.5/32)."
+  }
+}
+
+# =============================================================================
+# MASTER COUNT — Number of K8s control plane nodes (must be odd for etcd)
+# =============================================================================
+variable "master_count" {
+  description = "Number of Kubernetes control plane (master) nodes. Must be odd for etcd quorum."
+  type        = number
+  default     = 3
+
+  validation {
+    condition     = var.master_count >= 1 && var.master_count % 2 == 1
+    error_message = "master_count must be an odd number (1, 3, 5, 7, ...) for etcd quorum and at least 1."
+  }
+}
+
+# =============================================================================
+# WORKER COUNT — Number of K8s worker nodes
+# =============================================================================
+variable "worker_count" {
+  description = "Number of Kubernetes worker nodes"
+  type        = number
+  default     = 2
+
+  validation {
+    condition     = var.worker_count >= 1
+    error_message = "worker_count must be at least 1."
+  }
+}
+
+# =============================================================================
+# HAPROXY COUNT — Number of HAProxy load balancer instances
+# =============================================================================
+variable "haproxy_count" {
+  description = "Number of HAProxy load balancer instances"
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.haproxy_count >= 1
+    error_message = "haproxy_count must be at least 1."
   }
 }
 

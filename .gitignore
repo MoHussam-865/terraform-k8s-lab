@@ -100,6 +100,9 @@ id_rsa*
 hosts.ini
 hosts
 
+# Generated files directory
+generated/
+
 # OS files
 .DS_Store
 Thumbs.db
