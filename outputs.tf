@@ -19,17 +19,17 @@
 
 output "key_pair_name" {
   description = "Name of the SSH key pair created by Terraform. Use: ssh -i ~/.ssh/<key_name>.pem ubuntu@<public-ip>"
-  value       = aws_key_pair.this.key_name
+  value = aws_key_pair.this.key_name
 }
 
 output "key_pair_private_key_path" {
   description = "Local path to the generated private key file for SSH"
-  value       = local_file.private_key.filename
+  value = local_file.private_key.filename
 }
 
 output "key_pair_fingerprint" {
   description = "Fingerprint of the SSH key pair in AWS"
-  value       = aws_key_pair.this.fingerprint
+  value = aws_key_pair.this.fingerprint
 }
 
 # =============================================================================
@@ -38,21 +38,21 @@ output "key_pair_fingerprint" {
 
 output "vpc_id" {
   description = "ID of the VPC created for the Kubernetes lab"
-  value       = aws_vpc.main.id
+  value = aws_vpc.main.id
 }
 
 output "subnet_id" {
   description = "ID of the public subnet where all instances live"
-  value       = aws_subnet.public.id
+  value = aws_subnet.public.id
 }
 
 output "security_group_ids" {
   description = "Map of per-role security group IDs"
   value = {
-    ansible    = aws_security_group.sg_ansible.id
-    haproxy    = aws_security_group.sg_haproxy.id
-    master     = aws_security_group.sg_master.id
-    worker     = aws_security_group.sg_worker.id
+    ansible = aws_security_group.sg_ansible.id
+    haproxy = aws_security_group.sg_haproxy.id
+    master = aws_security_group.sg_master.id
+    worker = aws_security_group.sg_worker.id
     prometheus = aws_security_group.sg_prometheus.id
   }
 }
@@ -64,7 +64,7 @@ output "security_group_ids" {
 # Ansible controller (singleton)
 output "ansible_ip" {
   description = "Public IP of the Ansible controller (for SSH access)"
-  value       = aws_instance.ansible.public_ip
+  value = aws_instance.ansible.public_ip
 }
 
 # HAProxy LB instances (for_each with range -> map)
@@ -103,7 +103,7 @@ output "worker_public_ips" {
 # Prometheus server (singleton)
 output "prometheus_ip" {
   description = "Public IP of the Prometheus monitoring server"
-  value       = aws_instance.prometheus.public_ip
+  value = aws_instance.prometheus.public_ip
 }
 
 # =============================================================================
@@ -183,5 +183,5 @@ output "ansible_inventory" {
 # =============================================================================
 output "ansible_inventory_path" {
   description = "Local path to the generated Ansible inventory file"
-  value       = local_file.ansible_hosts.filename
+  value = local_file.ansible_hosts.filename
 }

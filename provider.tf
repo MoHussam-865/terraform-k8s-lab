@@ -96,11 +96,11 @@ provider "aws" {
   # ---------------------------------------------------------------------------
   default_tags {
     tags = {
-      Project     = "k8s-lab"
-      ManagedBy   = "Terraform"
-      Purpose     = "Kubernetes learning lab"
+      Project = "k8s-lab"
+      ManagedBy = "Terraform"
+      Purpose = "Kubernetes learning lab"
       Environment = "lab"
-      Owner       = "student" # 🔴 CHANGE THIS to your name/email
+      Owner = "student" # 🔴 CHANGE THIS to your name/email
     }
   }
 }

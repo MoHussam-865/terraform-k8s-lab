@@ -63,7 +63,7 @@ terraform {
     # widely used but 5.x is the current major version as of 2024.
     # ---------------------------------------------------------------
     aws = {
-      source  = "hashicorp/aws"
+      source = "hashicorp/aws"
       version = ">= 5.30, < 6.0"
     }
 
@@ -77,7 +77,7 @@ terraform {
     # and save the private key locally for SSH access.
     # ---------------------------------------------------------------
     tls = {
-      source  = "hashicorp/tls"
+      source = "hashicorp/tls"
       version = ">= 4.0, < 5.0"
     }
 
@@ -90,7 +90,7 @@ terraform {
     # hashicorp/local provider.
     # ---------------------------------------------------------------
     local = {
-      source  = "hashicorp/local"
+      source = "hashicorp/local"
       version = ">= 2.0, < 3.0"
     }
   }

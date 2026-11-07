@@ -65,7 +65,7 @@ data "aws_availability_zones" "available" {
 
   # Exclude Local Zones and Wavelength Zones (only standard AZs)
   filter {
-    name   = "opt-in-status"
+    name = "opt-in-status"
     values = ["opt-in-not-required"]
   }
 }
@@ -169,7 +169,7 @@ resource "aws_route" "internet_access" {
 #   VPC ✅ → Subnet ✅ → IGW ✅ → Route Table ✅ → Route ✅ → ASSOCIATION ✅
 # =============================================================================
 resource "aws_route_table_association" "public" {
-  subnet_id      = aws_subnet.public.id
+  subnet_id = aws_subnet.public.id
   route_table_id = aws_route_table.public.id
 }
 

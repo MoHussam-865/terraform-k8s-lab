@@ -51,8 +51,8 @@ locals {
   # These locals are for tags that vary between resources (like Name).
   # ---------------------------------------------------------------------------
   common_tags = {
-    Project     = "k8s-lab"
-    ManagedBy   = "Terraform"
+    Project = "k8s-lab"
+    ManagedBy = "Terraform"
     Environment = "lab"
   }
 
@@ -61,9 +61,9 @@ locals {
   # These group labels map to the sections in the generated hosts file.
   # ---------------------------------------------------------------------------
   inventory_groups = {
-    haproxy    = "haproxy"
-    masters    = "masters"
-    workers    = "workers"
+    haproxy = "haproxy"
+    masters = "masters"
+    workers = "workers"
     prometheus = "prometheus"
   }
 }

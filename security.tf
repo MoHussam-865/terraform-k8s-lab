@@ -18,310 +18,310 @@
 # 1. SG_ANSIBLE - Ansible Controller
 # =============================================================================
 resource "aws_security_group" "sg_ansible" {
-  name        = "${local.name_prefix}-sg-ansible"
+  name = "${local.name_prefix}-sg-ansible"
   description = "Ansible controller: SSH inbound only"
-  vpc_id      = aws_vpc.main.id
+  vpc_id = aws_vpc.main.id
   tags = { Name = "${local.name_prefix}-sg-ansible" }
 }
 
 resource "aws_security_group_rule" "ansible_ingress_ssh" {
-  type              = "ingress"
-  from_port         = 22
-  to_port           = 22
-  protocol          = "tcp"
-  cidr_blocks       = [var.my_public_ip]
+  type = "ingress"
+  from_port = 22
+  to_port = 22
+  protocol = "tcp"
+  cidr_blocks = [var.my_public_ip]
   security_group_id = aws_security_group.sg_ansible.id
-  description       = "Allow SSH from your public IP only"
+  description = "Allow SSH from your public IP only"
 }
 
 resource "aws_security_group_rule" "ansible_egress_all" {
-  type              = "egress"
-  from_port         = 0
-  to_port           = 0
-  protocol          = "-1"
-  cidr_blocks       = ["0.0.0.0/0"]
+  type = "egress"
+  from_port = 0
+  to_port = 0
+  protocol = "-1"
+  cidr_blocks = ["0.0.0.0/0"]
   security_group_id = aws_security_group.sg_ansible.id
-  description       = "Allow all outbound traffic"
+  description = "Allow all outbound traffic"
 }
 
 # =============================================================================
 # 2. SG_HAPROXY - HAProxy Load Balancer
 # =============================================================================
 resource "aws_security_group" "sg_haproxy" {
-  name        = "${local.name_prefix}-sg-haproxy"
+  name = "${local.name_prefix}-sg-haproxy"
   description = "HAProxy LB: SSH + K8s API (6443) inbound"
-  vpc_id      = aws_vpc.main.id
+  vpc_id = aws_vpc.main.id
   tags = { Name = "${local.name_prefix}-sg-haproxy" }
 }
 
 resource "aws_security_group_rule" "haproxy_ingress_ssh" {
-  type              = "ingress"
-  from_port         = 22
-  to_port           = 22
-  protocol          = "tcp"
-  cidr_blocks       = [var.my_public_ip]
+  type = "ingress"
+  from_port = 22
+  to_port = 22
+  protocol = "tcp"
+  cidr_blocks = [var.my_public_ip]
   security_group_id = aws_security_group.sg_haproxy.id
-  description       = "Allow SSH from your public IP only"
+  description = "Allow SSH from your public IP only"
 }
 
 resource "aws_security_group_rule" "haproxy_ingress_k8s_api" {
-  type              = "ingress"
-  from_port         = 6443
-  to_port           = 6443
-  protocol          = "tcp"
-  cidr_blocks       = [var.my_public_ip]
+  type = "ingress"
+  from_port = 6443
+  to_port = 6443
+  protocol = "tcp"
+  cidr_blocks = [var.my_public_ip]
   security_group_id = aws_security_group.sg_haproxy.id
-  description       = "Allow kubectl to K8s API via HAProxy :6443"
+  description = "Allow kubectl to K8s API via HAProxy :6443"
 }
 
 resource "aws_security_group_rule" "haproxy_egress_k8s_api" {
-  type                     = "egress"
-  from_port                = 6443
-  to_port                  = 6443
-  protocol                 = "tcp"
+  type = "egress"
+  from_port = 6443
+  to_port = 6443
+  protocol = "tcp"
   source_security_group_id = aws_security_group.sg_master.id
-  security_group_id        = aws_security_group.sg_haproxy.id
-  description              = "Forward K8s API traffic to master nodes"
+  security_group_id = aws_security_group.sg_haproxy.id
+  description = "Forward K8s API traffic to master nodes"
 }
 
 # =============================================================================
 # 3. SG_MASTER - Kubernetes Control Plane Nodes
 # =============================================================================
 resource "aws_security_group" "sg_master" {
-  name        = "${local.name_prefix}-sg-master"
+  name = "${local.name_prefix}-sg-master"
   description = "K8s master nodes: control plane services"
-  vpc_id      = aws_vpc.main.id
+  vpc_id = aws_vpc.main.id
   tags = { Name = "${local.name_prefix}-sg-master" }
 }
 
 resource "aws_security_group_rule" "master_ingress_ssh_from_ansible" {
-  type                     = "ingress"
-  from_port                = 22
-  to_port                  = 22
-  protocol                 = "tcp"
+  type = "ingress"
+  from_port = 22
+  to_port = 22
+  protocol = "tcp"
   source_security_group_id = aws_security_group.sg_ansible.id
-  security_group_id        = aws_security_group.sg_master.id
-  description              = "Allow SSH from Ansible controller"
+  security_group_id = aws_security_group.sg_master.id
+  description = "Allow SSH from Ansible controller"
 }
 
 resource "aws_security_group_rule" "master_ingress_k8s_api_from_haproxy" {
-  type                     = "ingress"
-  from_port                = 6443
-  to_port                  = 6443
-  protocol                 = "tcp"
+  type = "ingress"
+  from_port = 6443
+  to_port = 6443
+  protocol = "tcp"
   source_security_group_id = aws_security_group.sg_haproxy.id
-  security_group_id        = aws_security_group.sg_master.id
-  description              = "Allow K8s API from HAProxy"
+  security_group_id = aws_security_group.sg_master.id
+  description = "Allow K8s API from HAProxy"
 }
 
 resource "aws_security_group_rule" "master_ingress_k8s_api_from_master" {
-  type                     = "ingress"
-  from_port                = 6443
-  to_port                  = 6443
-  protocol                 = "tcp"
+  type = "ingress"
+  from_port = 6443
+  to_port = 6443
+  protocol = "tcp"
   source_security_group_id = aws_security_group.sg_master.id
-  security_group_id        = aws_security_group.sg_master.id
-  description              = "Allow inter-master K8s API"
+  security_group_id = aws_security_group.sg_master.id
+  description = "Allow inter-master K8s API"
 }
 
 resource "aws_security_group_rule" "master_ingress_etcd" {
-  type                     = "ingress"
-  from_port                = 2379
-  to_port                  = 2380
-  protocol                 = "tcp"
+  type = "ingress"
+  from_port = 2379
+  to_port = 2380
+  protocol = "tcp"
   source_security_group_id = aws_security_group.sg_master.id
-  security_group_id        = aws_security_group.sg_master.id
-  description              = "Allow etcd peer communication"
+  security_group_id = aws_security_group.sg_master.id
+  description = "Allow etcd peer communication"
 }
 
 resource "aws_security_group_rule" "master_ingress_kubelet_from_master" {
-  type                     = "ingress"
-  from_port                = 10250
-  to_port                  = 10250
-  protocol                 = "tcp"
+  type = "ingress"
+  from_port = 10250
+  to_port = 10250
+  protocol = "tcp"
   source_security_group_id = aws_security_group.sg_master.id
-  security_group_id        = aws_security_group.sg_master.id
-  description              = "Allow kubelet API between masters"
+  security_group_id = aws_security_group.sg_master.id
+  description = "Allow kubelet API between masters"
 }
 
 resource "aws_security_group_rule" "master_ingress_kubelet_from_worker" {
-  type                     = "ingress"
-  from_port                = 10250
-  to_port                  = 10250
-  protocol                 = "tcp"
+  type = "ingress"
+  from_port = 10250
+  to_port = 10250
+  protocol = "tcp"
   source_security_group_id = aws_security_group.sg_worker.id
-  security_group_id        = aws_security_group.sg_master.id
-  description              = "Allow kubelet API from workers"
+  security_group_id = aws_security_group.sg_master.id
+  description = "Allow kubelet API from workers"
 }
 
 resource "aws_security_group_rule" "master_ingress_controller_manager" {
-  type                     = "ingress"
-  from_port                = 10257
-  to_port                  = 10257
-  protocol                 = "tcp"
+  type = "ingress"
+  from_port = 10257
+  to_port = 10257
+  protocol = "tcp"
   source_security_group_id = aws_security_group.sg_master.id
-  security_group_id        = aws_security_group.sg_master.id
-  description              = "Allow Controller Manager"
+  security_group_id = aws_security_group.sg_master.id
+  description = "Allow Controller Manager"
 }
 
 resource "aws_security_group_rule" "master_ingress_scheduler" {
-  type                     = "ingress"
-  from_port                = 10259
-  to_port                  = 10259
-  protocol                 = "tcp"
+  type = "ingress"
+  from_port = 10259
+  to_port = 10259
+  protocol = "tcp"
   source_security_group_id = aws_security_group.sg_master.id
-  security_group_id        = aws_security_group.sg_master.id
-  description              = "Allow Scheduler"
+  security_group_id = aws_security_group.sg_master.id
+  description = "Allow Scheduler"
 }
 
 resource "aws_security_group_rule" "master_ingress_node_exporter" {
-  type                     = "ingress"
-  from_port                = 9100
-  to_port                  = 9100
-  protocol                 = "tcp"
+  type = "ingress"
+  from_port = 9100
+  to_port = 9100
+  protocol = "tcp"
   source_security_group_id = aws_security_group.sg_prometheus.id
-  security_group_id        = aws_security_group.sg_master.id
-  description              = "Allow Prometheus to scrape :9100"
+  security_group_id = aws_security_group.sg_master.id
+  description = "Allow Prometheus to scrape :9100"
 }
 
 resource "aws_security_group_rule" "master_egress_all" {
-  type              = "egress"
-  from_port         = 0
-  to_port           = 0
-  protocol          = "-1"
-  cidr_blocks       = ["0.0.0.0/0"]
+  type = "egress"
+  from_port = 0
+  to_port = 0
+  protocol = "-1"
+  cidr_blocks = ["0.0.0.0/0"]
   security_group_id = aws_security_group.sg_master.id
-  description       = "Allow all outbound traffic"
+  description = "Allow all outbound traffic"
 }
 
 # =============================================================================
 # 4. SG_WORKER - Kubernetes Worker Nodes
 # =============================================================================
 resource "aws_security_group" "sg_worker" {
-  name        = "${local.name_prefix}-sg-worker"
+  name = "${local.name_prefix}-sg-worker"
   description = "K8s worker nodes: kubelet + NodePort + metrics"
-  vpc_id      = aws_vpc.main.id
+  vpc_id = aws_vpc.main.id
   tags = { Name = "${local.name_prefix}-sg-worker" }
 }
 
 resource "aws_security_group_rule" "worker_ingress_ssh_from_ansible" {
-  type                     = "ingress"
-  from_port                = 22
-  to_port                  = 22
-  protocol                 = "tcp"
+  type = "ingress"
+  from_port = 22
+  to_port = 22
+  protocol = "tcp"
   source_security_group_id = aws_security_group.sg_ansible.id
-  security_group_id        = aws_security_group.sg_worker.id
-  description              = "Allow SSH from Ansible controller"
+  security_group_id = aws_security_group.sg_worker.id
+  description = "Allow SSH from Ansible controller"
 }
 
 resource "aws_security_group_rule" "worker_ingress_kubelet_from_master" {
-  type                     = "ingress"
-  from_port                = 10250
-  to_port                  = 10250
-  protocol                 = "tcp"
+  type = "ingress"
+  from_port = 10250
+  to_port = 10250
+  protocol = "tcp"
   source_security_group_id = aws_security_group.sg_master.id
-  security_group_id        = aws_security_group.sg_worker.id
-  description              = "Allow kubelet from masters"
+  security_group_id = aws_security_group.sg_worker.id
+  description = "Allow kubelet from masters"
 }
 
 resource "aws_security_group_rule" "worker_ingress_nodeport" {
-  type              = "ingress"
-  from_port         = 30000
-  to_port           = 32767
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
+  type = "ingress"
+  from_port = 30000
+  to_port = 32767
+  protocol = "tcp"
+  cidr_blocks = ["0.0.0.0/0"]
   security_group_id = aws_security_group.sg_worker.id
-  description       = "Allow NodePort services (K8s workloads)"
+  description = "Allow NodePort services (K8s workloads)"
 }
 
 resource "aws_security_group_rule" "worker_ingress_node_exporter" {
-  type                     = "ingress"
-  from_port                = 9100
-  to_port                  = 9100
-  protocol                 = "tcp"
+  type = "ingress"
+  from_port = 9100
+  to_port = 9100
+  protocol = "tcp"
   source_security_group_id = aws_security_group.sg_prometheus.id
-  security_group_id        = aws_security_group.sg_worker.id
-  description              = "Allow Prometheus to scrape :9100"
+  security_group_id = aws_security_group.sg_worker.id
+  description = "Allow Prometheus to scrape :9100"
 }
 
 resource "aws_security_group_rule" "worker_egress_all" {
-  type              = "egress"
-  from_port         = 0
-  to_port           = 0
-  protocol          = "-1"
-  cidr_blocks       = ["0.0.0.0/0"]
+  type = "egress"
+  from_port = 0
+  to_port = 0
+  protocol = "-1"
+  cidr_blocks = ["0.0.0.0/0"]
   security_group_id = aws_security_group.sg_worker.id
-  description       = "Allow all outbound traffic"
+  description = "Allow all outbound traffic"
 }
 
 # =============================================================================
 # 5. SG_PROMETHEUS - Prometheus & Grafana Monitoring Server
 # =============================================================================
 resource "aws_security_group" "sg_prometheus" {
-  name        = "${local.name_prefix}-sg-prometheus"
+  name = "${local.name_prefix}-sg-prometheus"
   description = "Prometheus (+Grafana) monitoring server"
-  vpc_id      = aws_vpc.main.id
+  vpc_id = aws_vpc.main.id
   tags = { Name = "${local.name_prefix}-sg-prometheus" }
 }
 
 resource "aws_security_group_rule" "prometheus_ingress_ssh" {
-  type              = "ingress"
-  from_port         = 22
-  to_port           = 22
-  protocol          = "tcp"
-  cidr_blocks       = [var.my_public_ip]
+  type = "ingress"
+  from_port = 22
+  to_port = 22
+  protocol = "tcp"
+  cidr_blocks = [var.my_public_ip]
   security_group_id = aws_security_group.sg_prometheus.id
-  description       = "Allow SSH from your public IP only"
+  description = "Allow SSH from your public IP only"
 }
 
 resource "aws_security_group_rule" "prometheus_ingress_web_ui" {
-  type              = "ingress"
-  from_port         = 9090
-  to_port           = 9090
-  protocol          = "tcp"
-  cidr_blocks       = [var.my_public_ip]
+  type = "ingress"
+  from_port = 9090
+  to_port = 9090
+  protocol = "tcp"
+  cidr_blocks = [var.my_public_ip]
   security_group_id = aws_security_group.sg_prometheus.id
-  description       = "Allow Prometheus web UI (:9090)"
+  description = "Allow Prometheus web UI (:9090)"
 }
 
 resource "aws_security_group_rule" "prometheus_ingress_grafana" {
-  type              = "ingress"
-  from_port         = 3000
-  to_port           = 3000
-  protocol          = "tcp"
-  cidr_blocks       = [var.my_public_ip]
+  type = "ingress"
+  from_port = 3000
+  to_port = 3000
+  protocol = "tcp"
+  cidr_blocks = [var.my_public_ip]
   security_group_id = aws_security_group.sg_prometheus.id
-  description       = "Allow Grafana web UI (:3000)"
+  description = "Allow Grafana web UI (:3000)"
 }
 
 resource "aws_security_group_rule" "prometheus_egress_scrape_masters" {
-  type                     = "egress"
-  from_port                = 9100
-  to_port                  = 9100
-  protocol                 = "tcp"
+  type = "egress"
+  from_port = 9100
+  to_port = 9100
+  protocol = "tcp"
   source_security_group_id = aws_security_group.sg_master.id
-  security_group_id        = aws_security_group.sg_prometheus.id
-  description              = "Scrape Node Exporter on masters"
+  security_group_id = aws_security_group.sg_prometheus.id
+  description = "Scrape Node Exporter on masters"
 }
 
 resource "aws_security_group_rule" "prometheus_egress_scrape_workers" {
-  type                     = "egress"
-  from_port                = 9100
-  to_port                  = 9100
-  protocol                 = "tcp"
+  type = "egress"
+  from_port = 9100
+  to_port = 9100
+  protocol = "tcp"
   source_security_group_id = aws_security_group.sg_worker.id
-  security_group_id        = aws_security_group.sg_prometheus.id
-  description              = "Scrape Node Exporter on workers"
+  security_group_id = aws_security_group.sg_prometheus.id
+  description = "Scrape Node Exporter on workers"
 }
 
 resource "aws_security_group_rule" "prometheus_egress_all" {
-  type              = "egress"
-  from_port         = 0
-  to_port           = 0
-  protocol          = "-1"
-  cidr_blocks       = ["0.0.0.0/0"]
+  type = "egress"
+  from_port = 0
+  to_port = 0
+  protocol = "-1"
+  cidr_blocks = ["0.0.0.0/0"]
   security_group_id = aws_security_group.sg_prometheus.id
-  description       = "Allow all outbound traffic"
+  description = "Allow all outbound traffic"
 }
 
 # =============================================================================
