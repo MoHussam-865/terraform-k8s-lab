@@ -197,7 +197,7 @@ resource "aws_instance" "master" {
   # toset(range(N)) produces {"0", "1", ..., "N-1"} - adding N doesn't
   # shift existing keys, so scaling up only creates NEW instances.
   # ---------------------------------------------------------------------------
-  for_each = toset(range(var.master_count))
+  for_each = toset([for i in range(var.master_count) : tostring(i)])
   # ---------------------------------------------------------------------------
   # ami - Amazon Machine Image (OS template).
   # ---------------------------------------------------------------------------
@@ -423,7 +423,7 @@ resource "aws_instance" "master" {
 # 2. WORKER - Kubernetes Worker Nodes
 # =============================================================================
 resource "aws_instance" "worker" {
-  for_each = toset(range(var.worker_count))
+  for_each = toset([for i in range(var.worker_count) : tostring(i)])
   ami = data.aws_ami.ubuntu.id
   instance_type = var.instance_type
   subnet_id = aws_subnet.public.id
@@ -476,7 +476,7 @@ resource "aws_instance" "worker" {
 # 3. HAPROXY - HAProxy Load Balancer
 # =============================================================================
 resource "aws_instance" "haproxy" {
-  for_each = toset(range(var.haproxy_count))
+  for_each = toset([for i in range(var.haproxy_count) : tostring(i)])
   ami = data.aws_ami.ubuntu.id
   instance_type = var.instance_type
   subnet_id = aws_subnet.public.id
