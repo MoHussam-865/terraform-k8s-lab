@@ -353,6 +353,7 @@ resource "aws_instance" "master" {
   # ===========================================================================
   provisioner "remote-exec" {
     inline = [
+      "cloud-init status --wait",
       "sudo bash /home/ubuntu/ansible-managed.sh",
       "sudo tee -a /home/ansadmin/.ssh/authorized_keys < /home/ubuntu/id_rsa.pub",
       "sudo rm '/home/ubuntu/id_rsa.pub'",
@@ -462,6 +463,7 @@ resource "aws_instance" "worker" {
   }
   provisioner "remote-exec" {
     inline = [
+      "cloud-init status --wait",
       "sudo bash /home/ubuntu/ansible-managed.sh",
       "sudo tee -a /home/ansadmin/.ssh/authorized_keys < /home/ubuntu/id_rsa.pub",
       "sudo rm '/home/ubuntu/id_rsa.pub'",
@@ -516,6 +518,7 @@ resource "aws_instance" "haproxy" {
   }
   provisioner "remote-exec" {
     inline = [
+      "cloud-init status --wait",
       "sudo bash /home/ubuntu/ansible-managed.sh",
       "sudo tee -a /home/ansadmin/.ssh/authorized_keys < /home/ubuntu/id_rsa.pub",
       "sudo rm '/home/ubuntu/id_rsa.pub'",
@@ -569,6 +572,7 @@ resource "aws_instance" "prometheus" {
   }
   provisioner "remote-exec" {
     inline = [
+      "cloud-init status --wait",
       "sudo bash /home/ubuntu/ansible-managed.sh",
       "sudo tee -a /home/ansadmin/.ssh/authorized_keys < /home/ubuntu/id_rsa.pub",
       "sudo rm '/home/ubuntu/id_rsa.pub'",
@@ -621,6 +625,7 @@ resource "aws_instance" "ansible" {
   # PROVISIONER 1: Create ansadmin user
   provisioner "remote-exec" {
     inline = [
+      "cloud-init status --wait",
       "sudo useradd -m -s /bin/bash ansadmin || echo 'user already exists'",
       "sudo mkdir -p /home/ansadmin/.ssh",
       "sudo chown -R ansadmin:ansadmin /home/ansadmin/.ssh",
