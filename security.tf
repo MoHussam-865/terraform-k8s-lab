@@ -84,6 +84,16 @@ resource "aws_security_group_rule" "haproxy_egress_k8s_api" {
   description = "Forward K8s API traffic to master nodes"
 }
 
+resource "aws_security_group_rule" "haproxy_egress_all" {
+  type = "egress"
+  from_port = 0
+  to_port = 0
+  protocol = "-1"
+  cidr_blocks = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.sg_haproxy.id
+  description = "Allow all outbound traffic"
+}
+
 # =============================================================================
 # 3. SG_MASTER - Kubernetes Control Plane Nodes
 # =============================================================================
