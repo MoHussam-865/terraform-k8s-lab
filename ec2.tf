@@ -658,17 +658,17 @@ resource "aws_instance" "ansible" {
       [haproxy]
       ${join("\n", [for key, inst in aws_instance.haproxy : inst.private_ip])}
 
-      [masters]
+      [control-plane]
       ${join("\n", [for key, inst in aws_instance.master : inst.private_ip])}
 
       [workers]
       ${join("\n", [for key, inst in aws_instance.worker : inst.private_ip])}
 
-      [prometheus]
+      [monitoring]
       ${aws_instance.prometheus.private_ip}
 
-      [k8s_cluster:children]
-      masters
+      [cluster:children]
+      control-plane
       workers
 
       [all:vars]

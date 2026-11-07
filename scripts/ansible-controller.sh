@@ -100,12 +100,14 @@ cd /home/ansadmin/anible-k8s-project
 
 sed -i '1s/^\xEF\xBB\xBF//' ansible.cfg
 
+sudo cp /etc/ansible/hosts /home/ansadmin/anible-k8s-project/hosts
+
 chown -R ansadmin:ansadmin /home/ansadmin/anible-k8s-project
 
-# sudo -u ansadmin bash -c "
-# cd /home/ansadmin/anible-k8s-project
-# ansible-playbook playbooks/site.yml
-# "
+sudo -u ansadmin bash -c "
+cd /home/ansadmin/anible-k8s-project
+ansible-playbook playbooks/site.yml
+"
 
 echo "cluster created successfully"
 
