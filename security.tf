@@ -10,7 +10,7 @@
 # KEY DESIGN DECISIONS
 # 1. PER-ROLE SGs: each role has its own SG with minimum rules (least privilege).
 # 2. SG-TO-SG REFERENCES: inter-node traffic uses source_security_group_id.
-# 3. CIDR BLOCKS only for: var.my_public_ip/32 and 0.0.0.0/0 (NodePort, egress).
+# 3. CIDR BLOCKS only for: 0.0.0.0/0 (SSH, admin, NodePort, egress).
 # 4. STATEFUL: response traffic is automatically allowed.
 # =============================================================================
 
@@ -29,9 +29,9 @@ resource "aws_security_group_rule" "ansible_ingress_ssh" {
   from_port = 22
   to_port = 22
   protocol = "tcp"
-  cidr_blocks = [var.my_public_ip]
+  cidr_blocks = ["0.0.0.0/0"]
   security_group_id = aws_security_group.sg_ansible.id
-  description = "Allow SSH from your public IP only"
+  description = "Allow SSH from anywhere"
 }
 
 resource "aws_security_group_rule" "ansible_egress_all" {
@@ -59,9 +59,9 @@ resource "aws_security_group_rule" "haproxy_ingress_ssh" {
   from_port = 22
   to_port = 22
   protocol = "tcp"
-  cidr_blocks = [var.my_public_ip]
+  cidr_blocks = ["0.0.0.0/0"]
   security_group_id = aws_security_group.sg_haproxy.id
-  description = "Allow SSH from your public IP only"
+  description = "Allow SSH from anywhere"
 }
 
 resource "aws_security_group_rule" "haproxy_ingress_k8s_api" {
@@ -69,7 +69,7 @@ resource "aws_security_group_rule" "haproxy_ingress_k8s_api" {
   from_port = 6443
   to_port = 6443
   protocol = "tcp"
-  cidr_blocks = [var.my_public_ip]
+  cidr_blocks = ["0.0.0.0/0"]
   security_group_id = aws_security_group.sg_haproxy.id
   description = "Allow kubectl to K8s API via HAProxy :6443"
 }
@@ -279,9 +279,9 @@ resource "aws_security_group_rule" "prometheus_ingress_ssh" {
   from_port = 22
   to_port = 22
   protocol = "tcp"
-  cidr_blocks = [var.my_public_ip]
+  cidr_blocks = ["0.0.0.0/0"]
   security_group_id = aws_security_group.sg_prometheus.id
-  description = "Allow SSH from your public IP only"
+  description = "Allow SSH from anywhere"
 }
 
 resource "aws_security_group_rule" "prometheus_ingress_web_ui" {
@@ -289,7 +289,7 @@ resource "aws_security_group_rule" "prometheus_ingress_web_ui" {
   from_port = 9090
   to_port = 9090
   protocol = "tcp"
-  cidr_blocks = [var.my_public_ip]
+  cidr_blocks = ["0.0.0.0/0"]
   security_group_id = aws_security_group.sg_prometheus.id
   description = "Allow Prometheus web UI (:9090)"
 }
@@ -299,7 +299,7 @@ resource "aws_security_group_rule" "prometheus_ingress_grafana" {
   from_port = 3000
   to_port = 3000
   protocol = "tcp"
-  cidr_blocks = [var.my_public_ip]
+  cidr_blocks = ["0.0.0.0/0"]
   security_group_id = aws_security_group.sg_prometheus.id
   description = "Allow Grafana web UI (:3000)"
 }

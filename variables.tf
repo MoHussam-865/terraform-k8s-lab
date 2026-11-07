@@ -96,21 +96,6 @@ variable "subnet_cidr" {
 }
 
 # =============================================================================
-# YOUR PUBLIC IP — SSH and admin access restriction
-# =============================================================================
-variable "my_public_ip" {
-  description = "Your public IP address in CIDR notation (e.g., 203.0.113.5/32). Used to restrict SSH and administrative access to the lab."
-  type = string
-  # NO default — user MUST explicitly provide this value.
-  # This prevents accidental exposure of SSH/admin ports to the entire internet.
-
-  validation {
-    condition = can(regex("^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$", var.my_public_ip))
-    error_message = "my_public_ip must be a valid CIDR notation (e.g., 203.0.113.5/32)."
-  }
-}
-
-# =============================================================================
 # MASTER COUNT — Number of K8s control plane nodes (must be odd for etcd)
 # =============================================================================
 variable "master_count" {

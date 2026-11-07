@@ -192,6 +192,7 @@ resource "local_file" "private_key" {
 # Scaled via var.master_count (default 3, must be odd for etcd quorum).
 # =============================================================================
 resource "aws_instance" "master" {
+  depends_on = [aws_security_group_rule.master_egress_all]
   # ---------------------------------------------------------------------------
   # for_each - iterate using range() for stable "0","1","2" keys
   # toset(range(N)) produces {"0", "1", ..., "N-1"} - adding N doesn't
@@ -423,6 +424,7 @@ resource "aws_instance" "master" {
 # 2. WORKER - Kubernetes Worker Nodes
 # =============================================================================
 resource "aws_instance" "worker" {
+  depends_on = [aws_security_group_rule.worker_egress_all]
   for_each = toset([for i in range(var.worker_count) : tostring(i)])
   ami = data.aws_ami.ubuntu.id
   instance_type = var.instance_type
@@ -482,6 +484,7 @@ resource "aws_instance" "haproxy" {
   subnet_id = aws_subnet.public.id
   vpc_security_group_ids = [aws_security_group.sg_haproxy.id]
   associate_public_ip_address = true
+  depends_on = [aws_security_group_rule.haproxy_egress_all]
   key_name = aws_key_pair.this.key_name
   root_block_device {
     volume_size = var.root_volume_size
@@ -529,6 +532,7 @@ resource "aws_instance" "haproxy" {
 # 4. PROMETHEUS - Monitoring Server
 # =============================================================================
 resource "aws_instance" "prometheus" {
+  depends_on = [aws_security_group_rule.prometheus_egress_all]
   ami = data.aws_ami.ubuntu.id
   instance_type = var.instance_type
   subnet_id = aws_subnet.public.id
@@ -582,6 +586,7 @@ resource "aws_instance" "prometheus" {
 # =============================================================================
 resource "aws_instance" "ansible" {
   depends_on = [
+    aws_security_group_rule.ansible_egress_all,
     aws_instance.master,
     aws_instance.worker,
     aws_instance.haproxy,
