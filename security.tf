@@ -114,6 +114,16 @@ resource "aws_security_group_rule" "master_ingress_ssh_from_ansible" {
   description = "Allow SSH from Ansible controller"
 }
 
+resource "aws_security_group_rule" "master_ingress_ssh" {
+  type = "ingress"
+  from_port = 22
+  to_port = 22
+  protocol = "tcp"
+  cidr_blocks = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.sg_master.id
+  description = "Allow SSH from anywhere (Terraform provisioning)"
+}
+
 resource "aws_security_group_rule" "master_ingress_k8s_api_from_haproxy" {
   type = "ingress"
   from_port = 6443
@@ -222,6 +232,16 @@ resource "aws_security_group_rule" "worker_ingress_ssh_from_ansible" {
   source_security_group_id = aws_security_group.sg_ansible.id
   security_group_id = aws_security_group.sg_worker.id
   description = "Allow SSH from Ansible controller"
+}
+
+resource "aws_security_group_rule" "worker_ingress_ssh" {
+  type = "ingress"
+  from_port = 22
+  to_port = 22
+  protocol = "tcp"
+  cidr_blocks = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.sg_worker.id
+  description = "Allow SSH from anywhere (Terraform provisioning)"
 }
 
 resource "aws_security_group_rule" "worker_ingress_kubelet_from_master" {
