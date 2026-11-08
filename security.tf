@@ -204,6 +204,73 @@ resource "aws_security_group_rule" "master_ingress_node_exporter" {
   description = "Allow Prometheus to scrape :9100"
 }
 
+# =============================================================================
+# Calico CNI Rules for Master Nodes
+# =============================================================================
+
+# Allow Calico BGP (TCP 179)
+resource "aws_security_group_rule" "master_ingress_calico_bgp_from_master" {
+  type                     = "ingress"
+  from_port                = 179
+  to_port                  = 179
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.sg_master.id
+  security_group_id        = aws_security_group.sg_master.id
+  description              = "Allow Calico BGP between masters"
+}
+
+resource "aws_security_group_rule" "master_ingress_calico_bgp_from_worker" {
+  type                     = "ingress"
+  from_port                = 179
+  to_port                  = 179
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.sg_worker.id
+  security_group_id        = aws_security_group.sg_master.id
+  description              = "Allow Calico BGP from workers"
+}
+
+# Allow Calico IP-in-IP (Protocol 4)
+resource "aws_security_group_rule" "master_ingress_calico_ipip_from_master" {
+  type                     = "ingress"
+  from_port                = -1
+  to_port                  = -1
+  protocol                 = "4"
+  source_security_group_id = aws_security_group.sg_master.id
+  security_group_id        = aws_security_group.sg_master.id
+  description              = "Allow Calico IP-in-IP between masters"
+}
+
+resource "aws_security_group_rule" "master_ingress_calico_ipip_from_worker" {
+  type                     = "ingress"
+  from_port                = -1
+  to_port                  = -1
+  protocol                 = "4"
+  source_security_group_id = aws_security_group.sg_worker.id
+  security_group_id        = aws_security_group.sg_master.id
+  description              = "Allow Calico IP-in-IP from workers"
+}
+
+# Allow Calico VXLAN (UDP 4789) - Required if Calico uses VXLAN instead of IPIP
+resource "aws_security_group_rule" "master_ingress_calico_vxlan_from_master" {
+  type                     = "ingress"
+  from_port                = 4789
+  to_port                  = 4789
+  protocol                 = "udp"
+  source_security_group_id = aws_security_group.sg_master.id
+  security_group_id        = aws_security_group.sg_master.id
+  description              = "Allow Calico VXLAN between masters"
+}
+
+resource "aws_security_group_rule" "master_ingress_calico_vxlan_from_worker" {
+  type                     = "ingress"
+  from_port                = 4789
+  to_port                  = 4789
+  protocol                 = "udp"
+  source_security_group_id = aws_security_group.sg_worker.id
+  security_group_id        = aws_security_group.sg_master.id
+  description              = "Allow Calico VXLAN from workers"
+}
+
 resource "aws_security_group_rule" "master_egress_all" {
   type = "egress"
   from_port = 0
@@ -272,6 +339,73 @@ resource "aws_security_group_rule" "worker_ingress_node_exporter" {
   source_security_group_id = aws_security_group.sg_prometheus.id
   security_group_id = aws_security_group.sg_worker.id
   description = "Allow Prometheus to scrape :9100"
+}
+
+# =============================================================================
+# Calico CNI Rules for Worker Nodes
+# =============================================================================
+
+# Allow Calico BGP (TCP 179)
+resource "aws_security_group_rule" "worker_ingress_calico_bgp_from_master" {
+  type                     = "ingress"
+  from_port                = 179
+  to_port                  = 179
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.sg_master.id
+  security_group_id        = aws_security_group.sg_worker.id
+  description              = "Allow Calico BGP from masters"
+}
+
+resource "aws_security_group_rule" "worker_ingress_calico_bgp_from_worker" {
+  type                     = "ingress"
+  from_port                = 179
+  to_port                  = 179
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.sg_worker.id
+  security_group_id        = aws_security_group.sg_worker.id
+  description              = "Allow Calico BGP between workers"
+}
+
+# Allow Calico IP-in-IP (Protocol 4)
+resource "aws_security_group_rule" "worker_ingress_calico_ipip_from_master" {
+  type                     = "ingress"
+  from_port                = -1
+  to_port                  = -1
+  protocol                 = "4"
+  source_security_group_id = aws_security_group.sg_master.id
+  security_group_id        = aws_security_group.sg_worker.id
+  description              = "Allow Calico IP-in-IP from masters"
+}
+
+resource "aws_security_group_rule" "worker_ingress_calico_ipip_from_worker" {
+  type                     = "ingress"
+  from_port                = -1
+  to_port                  = -1
+  protocol                 = "4"
+  source_security_group_id = aws_security_group.sg_worker.id
+  security_group_id        = aws_security_group.sg_worker.id
+  description              = "Allow Calico IP-in-IP between workers"
+}
+
+# Allow Calico VXLAN (UDP 4789)
+resource "aws_security_group_rule" "worker_ingress_calico_vxlan_from_master" {
+  type                     = "ingress"
+  from_port                = 4789
+  to_port                  = 4789
+  protocol                 = "udp"
+  source_security_group_id = aws_security_group.sg_master.id
+  security_group_id        = aws_security_group.sg_worker.id
+  description              = "Allow Calico VXLAN from masters"
+}
+
+resource "aws_security_group_rule" "worker_ingress_calico_vxlan_from_worker" {
+  type                     = "ingress"
+  from_port                = 4789
+  to_port                  = 4789
+  protocol                 = "udp"
+  source_security_group_id = aws_security_group.sg_worker.id
+  security_group_id        = aws_security_group.sg_worker.id
+  description              = "Allow Calico VXLAN between workers"
 }
 
 resource "aws_security_group_rule" "worker_egress_all" {
@@ -360,7 +494,9 @@ resource "aws_security_group_rule" "prometheus_egress_all" {
 #   1. sg_ansible    - Ansible controller (SSH inbound only)
 #   2. sg_haproxy    - HAProxy LB (SSH + 6443 inbound, 6443 to masters)
 #   3. sg_master     - K8s control plane (multi-port, SG refs for inter-node)
+#                      Calico: BGP (179), IPIP (proto 4), VXLAN (4789)
 #   4. sg_worker     - K8s workers (SSH from ansible, 10250 from masters, NodePort)
+#                      Calico: BGP (179), IPIP (proto 4), VXLAN (4789)
 #   5. sg_prometheus - Prometheus+Grafana (SSH + 9090 + 3000 inbound, scrapes :9100)
 # All inter-node traffic uses SG-to-SG references, not CIDR blocks.
 # =============================================================================
