@@ -144,6 +144,16 @@ resource "aws_security_group_rule" "master_ingress_k8s_api_from_master" {
   description = "Allow inter-master K8s API"
 }
 
+resource "aws_security_group_rule" "master_ingress_k8s_api_from_worker" {
+  type                     = "ingress"
+  from_port                = 6443
+  to_port                  = 6443
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.sg_worker.id
+  security_group_id        = aws_security_group.sg_master.id
+  description              = "Allow K8s API from workers (internal pod routing)"
+}
+
 resource "aws_security_group_rule" "master_ingress_etcd" {
   type = "ingress"
   from_port = 2379
