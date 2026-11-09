@@ -159,6 +159,6 @@ cd terraform-k8s-lab
 mkdir -p keys
 
 sudo ssh-keygen -t rsa -b 4096 -N "" -f ./keys/id_rsa
-
+sudo snap install aws-cli --classic
 terraform init
 ```
