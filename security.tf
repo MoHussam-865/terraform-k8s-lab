@@ -34,6 +34,16 @@ resource "aws_security_group_rule" "ansible_ingress_ssh" {
   description = "Allow SSH from anywhere"
 }
 
+resource "aws_security_group_rule" "ansible_ingress_prometheus_node_exporter" {
+  type = "ingress"
+  from_port = 9100
+  to_port = 9100
+  protocol = "tcp"
+  source_security_group_id = aws_security_group.sg_prometheus.id
+  security_group_id = aws_security_group.sg_ansible.id
+  description = "Allow Prometheus Node Exporter scraping from monitoring server"
+}
+
 resource "aws_security_group_rule" "ansible_egress_all" {
   type = "egress"
   from_port = 0
@@ -82,6 +92,16 @@ resource "aws_security_group_rule" "haproxy_egress_k8s_api" {
   source_security_group_id = aws_security_group.sg_master.id
   security_group_id = aws_security_group.sg_haproxy.id
   description = "Forward K8s API traffic to master nodes"
+}
+
+resource "aws_security_group_rule" "haproxy_ingress_prometheus_node_exporter" {
+  type = "ingress"
+  from_port = 9100
+  to_port = 9100
+  protocol = "tcp"
+  source_security_group_id = aws_security_group.sg_prometheus.id
+  security_group_id = aws_security_group.sg_haproxy.id
+  description = "Allow Prometheus Node Exporter scraping from monitoring server"
 }
 
 resource "aws_security_group_rule" "haproxy_egress_all" {
@@ -488,6 +508,26 @@ resource "aws_security_group_rule" "prometheus_egress_scrape_workers" {
   description = "Scrape Node Exporter on workers"
 }
 
+resource "aws_security_group_rule" "prometheus_egress_scrape_haproxy" {
+  type = "egress"
+  from_port = 9100
+  to_port = 9100
+  protocol = "tcp"
+  source_security_group_id = aws_security_group.sg_haproxy.id
+  security_group_id = aws_security_group.sg_prometheus.id
+  description = "Scrape Node Exporter on haproxy"
+}
+
+resource "aws_security_group_rule" "prometheus_egress_scrape_ansible" {
+  type = "egress"
+  from_port = 9100
+  to_port = 9100
+  protocol = "tcp"
+  source_security_group_id = aws_security_group.sg_ansible.id
+  security_group_id = aws_security_group.sg_prometheus.id
+  description = "Scrape Node Exporter on ansible controller"
+}
+
 resource "aws_security_group_rule" "prometheus_egress_all" {
   type = "egress"
   from_port = 0
@@ -501,12 +541,13 @@ resource "aws_security_group_rule" "prometheus_egress_all" {
 # =============================================================================
 # SECURITY GROUPS COMPLETE!
 # Summary:
-#   1. sg_ansible    - Ansible controller (SSH inbound only)
-#   2. sg_haproxy    - HAProxy LB (SSH + 6443 inbound, 6443 to masters)
+#   1. sg_ansible    - Ansible controller (SSH inbound + :9100 from Prometheus)
+#   2. sg_haproxy    - HAProxy LB (SSH + 6443 inbound, 6443 to masters, :9100 from Prometheus)
 #   3. sg_master     - K8s control plane (multi-port, SG refs for inter-node)
 #                      Calico: BGP (179), IPIP (proto 4), VXLAN (4789)
 #   4. sg_worker     - K8s workers (SSH from ansible, 10250 from masters, NodePort)
 #                      Calico: BGP (179), IPIP (proto 4), VXLAN (4789)
-#   5. sg_prometheus - Prometheus+Grafana (SSH + 9090 + 3000 inbound, scrapes :9100)
+#   5. sg_prometheus - Prometheus+Grafana (SSH + 9090 + 3000 inbound,
+#                      scrapes :9100 on masters + workers + haproxy + ansible)
 # All inter-node traffic uses SG-to-SG references, not CIDR blocks.
 # =============================================================================

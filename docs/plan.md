@@ -64,6 +64,7 @@ Key: [] = security group boundary, ─→ = allowed traffic direction
 | Direction | Port | Source/Destination | Reason |
 |-----------|------|--------------------|--------|
 | **Inbound** | 22 (SSH) | `var.my_public_ip` | Your SSH into Ansible controller |
+| **Inbound** | 9100 | `sg_prometheus` (SG reference) | Node Exporter metrics scraped by Prometheus |
 | **Outbound** | ALL | 0.0.0.0/0 | SSH to nodes, apt, git clone, K8s installs |
 
 ### 2. `sg_haproxy` — HAProxy Load Balancer
@@ -72,6 +73,7 @@ Key: [] = security group boundary, ─→ = allowed traffic direction
 |-----------|------|--------------------|--------|
 | **Inbound** | 22 (SSH) | `var.my_public_ip` | Administration |
 | **Inbound** | 6443 | `var.my_public_ip` | kubectl / kubeadm endpoint |
+| **Inbound** | 9100 | `sg_prometheus` (SG reference) | Node Exporter metrics scraped by Prometheus |
 | **Outbound** | 6443 | `sg_master` (SG reference) | Forward traffic to K8s API servers |
 
 ### 3. `sg_master` — Kubernetes Control Plane
@@ -107,6 +109,8 @@ Key: [] = security group boundary, ─→ = allowed traffic direction
 | **Inbound** | 9090 | `var.my_public_ip` | Prometheus web UI |
 | **Outbound** | 9100 | `sg_master` (SG reference) | Scrape master Node Exporters |
 | **Outbound** | 9100 | `sg_worker` (SG reference) | Scrape worker Node Exporters |
+| **Outbound** | 9100 | `sg_haproxy` (SG reference) | Scrape HAProxy Node Exporters |
+| **Outbound** | 9100 | `sg_ansible` (SG reference) | Scrape Ansible controller Node Exporters |
 | **Outbound** | ALL | 0.0.0.0/0 | apt, internet access |
 ### SG Relationship Diagram
 
@@ -434,7 +438,7 @@ Uploaded to ansible controller via `file` provisioner. Template uses `%{ for ip 
 - [ ] Adding `worker_count = 4` creates 2 new workers without touching existing ones
 - [ ] Each instance only has the security group rules relevant to its role
 - [ ] SG inter-node rules use SG references (source_security_group_id), not CIDRs
-- [ ] Prometheus can scrape port 9100 from all masters and workers
+- [ ] Prometheus can scrape port 9100 from all masters, workers, HAProxy, and Ansible controller
 - [ ] `terraform validate` passes with no errors
 - [ ] `terraform plan` shows the expected ~42 resources
 - [ ] `terraform fmt -recursive` shows no diffs (code is consistently formatted)

@@ -707,6 +707,20 @@ resource "local_file" "ansible_hosts" {
   file_permission = "0644"
 }
 # =============================================================================
+# 7. LOCAL FILE: Prometheus configuration (local copy for reference)
+# =============================================================================
+resource "local_file" "prometheus_config" {
+  content = templatefile("${path.module}/templates/prometheus.yml.tpl", {
+    master_ips   = [for key, inst in aws_instance.master : inst.private_ip]
+    worker_ips   = [for key, inst in aws_instance.worker : inst.private_ip]
+    haproxy_ips  = [for key, inst in aws_instance.haproxy : inst.private_ip]
+    ansible_ip   = aws_instance.ansible.private_ip
+  })
+  filename        = "${path.module}/generated/prometheus.yml"
+  file_permission = "0644"
+}
+
+# =============================================================================
 # EC2 INSTANCES - Complete!
 #
 # Creation order:
