@@ -2,6 +2,51 @@
 
 A production-quality Terraform project that provisions the AWS infrastructure for a hands-on Kubernetes lab. Built with detailed educational comments — designed to **teach** Terraform while building real infrastructure.
 
+## Quick implementation
+
+> run script on ubuntu server
+
+**this installs** `terraform, git, aws-cli`
+
+```bash
+#!/bin/bash
+
+# 1. Update system and install prerequisites
+sudo apt-get update && sudo apt-get install -y gnupg software-properties-common curl
+
+# 2. Install the HashiCorp GPG key securely
+curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+
+# 3. Add the official HashiCorp repository (FIXED path: /etc/apt/)
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(grep -oP '(?<=UBUNTU_CODENAME=).*' /etc/os-release || lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+
+# 4. Update repository lists and install Terraform
+sudo apt-get update && sudo apt-get install -y terraform
+
+sudo apt update
+sudo apt install git -y
+
+git clone https://github.com/MoHussam-865/terraform-k8s-lab
+cd terraform-k8s-lab
+mkdir -p keys
+
+ssh-keygen -t rsa -b 4096 -N "" -f ./keys/id_rsa
+sudo snap install aws-cli --classic
+terraform init
+```
+
+then 
+
+```bash
+aws configure
+```
+
+> Enter Key ID, Secret & region
+
+```bash
+yes yes | terraform apply
+```
+
 ## Architecture
 
 ```
@@ -137,31 +182,3 @@ terraform destroy
 | t3.small denied | Request limit increase or try t3.micro |
 | No internet on instances | Check route: 0.0.0.0/0 → IGW |
 | Plan shows AMI change | Expected — lifecycle.ignore_changes handles it |
-
-
-```bash
-#!/bin/bash
-
-# 1. Update system and install prerequisites
-sudo apt-get update && sudo apt-get install -y gnupg software-properties-common curl
-
-# 2. Install the HashiCorp GPG key securely
-curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
-
-# 3. Add the official HashiCorp repository (FIXED path: /etc/apt/)
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(grep -oP '(?<=UBUNTU_CODENAME=).*' /etc/os-release || lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
-
-# 4. Update repository lists and install Terraform
-sudo apt-get update && sudo apt-get install -y terraform
-
-sudo apt update
-sudo apt install git -y
-
-git clone https://github.com/MoHussam-865/terraform-k8s-lab
-cd terraform-k8s-lab
-mkdir -p keys
-
-ssh-keygen -t rsa -b 4096 -N "" -f ./keys/id_rsa
-sudo snap install aws-cli --classic
-terraform init
-```
