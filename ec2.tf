@@ -11,7 +11,8 @@
 #   2. aws_instance.haproxy     â†’ N=1 map      (sg_haproxy)
 #   3. aws_instance.master      â†’ N=3 map      (sg_master)
 #   4. aws_instance.worker      â†’ N=2 map      (sg_worker)
-#   5. aws_instance.prometheus  â†’ 1 singleton  (sg_prometheus)
+#   5. aws_instance.prometheus  -> 1 singleton  (sg_prometheus)
+#   6. aws_instance.jenkins     -> 1 singleton  (sg_jenkins)
 #
 # KEY DESIGN DECISION: for_each with range() NOT count
 #
@@ -595,6 +596,7 @@ resource "aws_instance" "ansible" {
     aws_instance.worker,
     aws_instance.haproxy,
     aws_instance.prometheus,
+    aws_instance.jenkins,
   ]
   ami = data.aws_ami.ubuntu.id
   instance_type = var.instance_type
@@ -667,6 +669,9 @@ resource "aws_instance" "ansible" {
       [monitoring]
       ${aws_instance.prometheus.private_ip}
 
+      [jenkins]
+      ${aws_instance.jenkins.private_ip}
+
       [cluster:children]
       control-plane
       workers
@@ -694,14 +699,67 @@ resource "aws_instance" "ansible" {
   }
 }
 # =============================================================================
-# 6. LOCAL FILE: Ansible inventory (local copy for reference)
+# 6. JENKINS - CI/CD Server (created before ansible so it's in the inventory)
+# =============================================================================
+resource "aws_instance" "jenkins" {
+  depends_on = [aws_security_group_rule.jenkins_egress_all]
+  ami                         = data.aws_ami.ubuntu.id
+  instance_type               = var.instance_type
+  subnet_id                   = aws_subnet.public.id
+  vpc_security_group_ids      = [aws_security_group.sg_jenkins.id]
+  associate_public_ip_address = true
+  key_name                    = aws_key_pair.this.key_name
+  root_block_device {
+    volume_size           = var.root_volume_size
+    volume_type           = "gp3"
+    delete_on_termination = true
+    encrypted             = true
+    tags = {
+      Name = "${local.name_prefix}-jenkins-root-vol"
+    }
+  }
+  tags = {
+    Name = "${local.name_prefix}-jenkins-server"
+    Role = "jenkins"
+  }
+  connection {
+    type        = "ssh"
+    user        = "ubuntu"
+    host        = self.public_ip
+    private_key = tls_private_key.this.private_key_pem
+    timeout     = "10m"
+  }
+  provisioner "file" {
+    source      = "${path.module}/scripts/ansible-managed.sh"
+    destination = "/home/ubuntu/ansible-managed.sh"
+  }
+  provisioner "file" {
+    source      = "${path.module}/keys/id_rsa.pub"
+    destination = "/home/ubuntu/id_rsa.pub"
+  }
+  provisioner "remote-exec" {
+    inline = [
+      "cloud-init status --wait",
+      "sudo bash /home/ubuntu/ansible-managed.sh",
+      "sudo tee -a /home/ansadmin/.ssh/authorized_keys < /home/ubuntu/id_rsa.pub",
+      "sudo rm '/home/ubuntu/id_rsa.pub'",
+      "sudo chown ansadmin:ansadmin /home/ansadmin/.ssh/authorized_keys",
+      "sudo chmod 600 /home/ansadmin/.ssh/authorized_keys",
+    ]
+  }
+  lifecycle {
+    ignore_changes = [ami, root_block_device[0].volume_type]
+    prevent_destroy = false
+  }
+}
 # =============================================================================
 resource "local_file" "ansible_hosts" {
   content = templatefile("${path.module}/templates/hosts.tpl", {
-    haproxy_ips = [for key, inst in aws_instance.haproxy : inst.private_ip]
-    master_ips = [for key, inst in aws_instance.master : inst.private_ip]
-    worker_ips = [for key, inst in aws_instance.worker : inst.private_ip]
+    haproxy_ips  = [for key, inst in aws_instance.haproxy : inst.private_ip]
+    master_ips   = [for key, inst in aws_instance.master : inst.private_ip]
+    worker_ips   = [for key, inst in aws_instance.worker : inst.private_ip]
     prometheus_ip = aws_instance.prometheus.private_ip
+    jenkins_ip   = aws_instance.jenkins.private_ip
   })
   filename = "${path.module}/generated/hosts"
   file_permission = "0644"
@@ -727,7 +785,8 @@ resource "local_file" "prometheus_config" {
 #   1. master + worker           - Parallel (no inter-dependency)
 #   2. haproxy                   - After master (needs master IPs for config)
 #   3. prometheus                - After master + worker (needs IPs for targets)
-#   4. ansible                   - After ALL others (needs all IPs for inventory)
+#   4. jenkins                   - After SG (no dependency on other instances)
+#   5. ansible                   - After ALL others (needs all IPs for inventory)
 #
 # Dynamic private IPs (auto-assigned from subnet). SG-to-SG inter-node traffic.
 # =============================================================================

@@ -20,6 +20,9 @@ ${ip}
 [prometheus]
 ${prometheus_ip}
 
+[jenkins]
+${jenkins_ip}
+
 [k8s_cluster:children]
 masters
 workers

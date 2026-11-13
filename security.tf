@@ -539,6 +539,46 @@ resource "aws_security_group_rule" "prometheus_egress_all" {
 }
 
 # =============================================================================
+# 6. SG_JENKINS - Jenkins CI/CD Server
+# =============================================================================
+resource "aws_security_group" "sg_jenkins" {
+  name        = "${local.name_prefix}-sg-jenkins"
+  description = "Jenkins CI/CD server: SSH + port 8080 inbound"
+  vpc_id      = aws_vpc.main.id
+  tags        = { Name = "${local.name_prefix}-sg-jenkins" }
+}
+
+resource "aws_security_group_rule" "jenkins_ingress_ssh" {
+  type              = "ingress"
+  from_port         = 22
+  to_port           = 22
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.sg_jenkins.id
+  description       = "Allow SSH from anywhere"
+}
+
+resource "aws_security_group_rule" "jenkins_ingress_web_ui" {
+  type              = "ingress"
+  from_port         = 8080
+  to_port           = 8080
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.sg_jenkins.id
+  description       = "Allow Jenkins dashboard (:8080)"
+}
+
+resource "aws_security_group_rule" "jenkins_egress_all" {
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.sg_jenkins.id
+  description       = "Allow all outbound traffic"
+}
+
+# =============================================================================
 # SECURITY GROUPS COMPLETE!
 # Summary:
 #   1. sg_ansible    - Ansible controller (SSH inbound + :9100 from Prometheus)
@@ -549,5 +589,6 @@ resource "aws_security_group_rule" "prometheus_egress_all" {
 #                      Calico: BGP (179), IPIP (proto 4), VXLAN (4789)
 #   5. sg_prometheus - Prometheus+Grafana (SSH + 9090 + 3000 inbound,
 #                      scrapes :9100 on masters + workers + haproxy + ansible)
+#   6. sg_jenkins    - Jenkins CI/CD server (SSH + 8080 inbound, all outbound)
 # All inter-node traffic uses SG-to-SG references, not CIDR blocks.
 # =============================================================================

@@ -54,6 +54,7 @@ output "security_group_ids" {
     master = aws_security_group.sg_master.id
     worker = aws_security_group.sg_worker.id
     prometheus = aws_security_group.sg_prometheus.id
+    jenkins    = aws_security_group.sg_jenkins.id
   }
 }
 
@@ -106,6 +107,17 @@ output "prometheus_ip" {
   value = aws_instance.prometheus.public_ip
 }
 
+# Jenkins CI/CD server (singleton)
+output "jenkins_ip" {
+  description = "Public IP of the Jenkins CI/CD server"
+  value = aws_instance.jenkins.public_ip
+}
+
+output "jenkins_private_ip" {
+  description = "Private IP of the Jenkins CI/CD server"
+  value = aws_instance.jenkins.private_ip
+}
+
 # =============================================================================
 # EC2 Instance IDs — for AWS CLI operations
 # Usage: aws ec2 stop-instances --instance-ids $(terraform output -json instance_ids)
@@ -117,7 +129,8 @@ output "instance_ids" {
     { for key, inst in aws_instance.haproxy : "haproxy-${key}" => inst.id },
     { for key, inst in aws_instance.master : "master-${key}" => inst.id },
     { for key, inst in aws_instance.worker : "worker-${key}" => inst.id },
-    { "prometheus-server" = aws_instance.prometheus.id }
+    { "prometheus-server" = aws_instance.prometheus.id },
+    { "jenkins-server"    = aws_instance.jenkins.id }
   )
 }
 
@@ -129,7 +142,8 @@ output "public_dns" {
     { for key, inst in aws_instance.haproxy : "haproxy-${key}" => inst.public_dns },
     { for key, inst in aws_instance.master : "master-${key}" => inst.public_dns },
     { for key, inst in aws_instance.worker : "worker-${key}" => inst.public_dns },
-    { "prometheus-server" = aws_instance.prometheus.public_dns }
+    { "prometheus-server" = aws_instance.prometheus.public_dns },
+    { "jenkins-server"    = aws_instance.jenkins.public_dns }
   )
 }
 
@@ -167,6 +181,9 @@ output "ansible_inventory" {
 
     [prometheus]
     ${aws_instance.prometheus.private_ip}
+
+    [jenkins]
+    ${aws_instance.jenkins.private_ip}
 
     [k8s_cluster:children]
     masters

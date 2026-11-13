@@ -15,16 +15,19 @@ VPC (10.1.0.0/24)
     ↓
 Public Subnet (10.1.0.0/28)
     ↓
-Security Group (SSH:22 + K8s API:6443)
+Security Groups (per-role: SSH:22 + app-specific ports)
     ↓
-┌─────────────────────┬──────────────────┬──────────────┬──────────────┐
-│ ansible-controller  │ control-plane-01 │  worker-01   │  worker-02   │
-│    10.1.0.7         │    10.1.0.10     │  10.1.0.6    │  10.1.0.8    │
-│  (Ansible mgmt)     │  (K8s control)   │ (K8s worker) │ (K8s worker) │
-└─────────────────────┴──────────────────┴──────────────┴──────────────┘
+┌─────────────────────┬──────────────────┬──────────────┬──────────────┬──────────────┐
+│ ansible-controller  │ control-plane-01 │  worker-01   │  worker-02   │   jenkins    │
+│    10.1.0.7         │    10.1.0.10     │  10.1.0.6    │  10.1.0.8    │    (dynamic) │
+│  (Ansible mgmt)     │  (K8s control)   │ (K8s worker) │ (K8s worker) │  (CI/CD)     │
+└─────────────────────┴──────────────────┴──────────────┴──────────────┴──────────────┘
 ```
 
 All instances: Ubuntu 22.04 LTS, t3.small, 20 GiB encrypted gp3 EBS.
+
+Architecture now includes: 1 Ansible controller, 3 K8s master nodes, 2 K8s worker nodes,
+1 HAProxy load balancer, 1 Prometheus/Grafana monitoring server, and 1 Jenkins CI/CD server.
 
 ## Prerequisites
 
@@ -118,10 +121,10 @@ terraform destroy
 
 | Resource | Qty | Rate | Monthly |
 |---|---|---|---|
-| t3.small EC2 | 4 | $0.0208/hr | ~$60.80 |
-| 20 GiB gp3 EBS | 4x20GB | $0.08/GB-month | ~$6.40 |
+| t3.small EC2 | 8 | $0.0208/hr | ~$121.60 |
+| 20 GiB gp3 EBS | 8x20GB | $0.08/GB-month | ~$12.80 |
 | Internet egress | Variable | $0.09/GB | ~$2-5 |
-| **Total** | | | **~$70/month** |
+| **Total** | | | **~$135/month** |
 
 **Destroy when not in use**: `terraform destroy`
 

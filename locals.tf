@@ -61,9 +61,10 @@ locals {
   # These group labels map to the sections in the generated hosts file.
   # ---------------------------------------------------------------------------
   inventory_groups = {
-    haproxy = "haproxy"
-    masters = "masters"
-    workers = "workers"
+    haproxy    = "haproxy"
+    masters    = "masters"
+    workers    = "workers"
     prometheus = "prometheus"
+    jenkins    = "jenkins"
   }
 }
