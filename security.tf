@@ -528,6 +528,16 @@ resource "aws_security_group_rule" "prometheus_egress_scrape_ansible" {
   description = "Scrape Node Exporter on ansible controller"
 }
 
+resource "aws_security_group_rule" "prometheus_egress_scrape_jenkins" {
+  type = "egress"
+  from_port = 9100
+  to_port = 9100
+  protocol = "tcp"
+  source_security_group_id = aws_security_group.sg_jenkins.id
+  security_group_id = aws_security_group.sg_prometheus.id
+  description = "Scrape Node Exporter on jenkins server"
+}
+
 resource "aws_security_group_rule" "prometheus_egress_all" {
   type = "egress"
   from_port = 0
