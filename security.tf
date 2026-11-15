@@ -578,6 +578,16 @@ resource "aws_security_group_rule" "jenkins_ingress_web_ui" {
   description       = "Allow Jenkins dashboard (:8080)"
 }
 
+resource "aws_security_group_rule" "jenkins_ingress_prometheus_node_exporter" {
+  type = "ingress"
+  from_port = 9100
+  to_port = 9100
+  protocol = "tcp"
+  source_security_group_id = aws_security_group.sg_prometheus.id
+  security_group_id = aws_security_group.sg_jenkins.id
+  description = "Allow Prometheus Node Exporter scraping from monitoring server"
+}
+
 resource "aws_security_group_rule" "jenkins_egress_all" {
   type              = "egress"
   from_port         = 0
