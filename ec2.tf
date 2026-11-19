@@ -675,6 +675,8 @@ resource "aws_instance" "ansible" {
       [cluster:children]
       control-plane
       workers
+      haproxy
+      jenkins
 
       [all:vars]
       ansible_python_interpreter=/usr/bin/python3
